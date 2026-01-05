@@ -1,0 +1,7 @@
+/* Learning Path Generator Plugin Styles */
+
+.learning-path-view-container {
+  padding: 16px;
+  user-select: text;
+  -webkit-user-select: text;
+}

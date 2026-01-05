@@ -1,0 +1,23 @@
+# Build outputs
+main.js
+/styles.css
+
+# Dependencies
+node_modules/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+coverage/
+
+# Environment
+.env
+.env.local
