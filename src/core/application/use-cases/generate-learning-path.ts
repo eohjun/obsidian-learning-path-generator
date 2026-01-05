@@ -295,11 +295,13 @@ export class GenerateLearningPathUseCase {
    * 따라서 forward links를 따라가며 선수 지식을 찾음
    *
    * @param maxDepth - 최대 탐색 깊이 (기본값: 3)
+   * @param maxNodes - 최대 노드 수 (기본값: 30)
    */
   private findPathToGoal(
     notes: NoteData[],
     goalId: string,
-    maxDepth: number = 3
+    maxDepth: number = 3,
+    maxNodes: number = 30
   ): string[] {
     const noteMap = new Map(notes.map((n) => [n.id, n]));
     const goalNote = noteMap.get(goalId);
@@ -320,6 +322,9 @@ export class GenerateLearningPathUseCase {
 
       if (prerequisites.has(current) && current !== goalId) continue;
       prerequisites.add(current);
+
+      // Stop if max nodes reached
+      if (prerequisites.size >= maxNodes) break;
 
       // Stop if max depth reached
       if (depth >= maxDepth) continue;
