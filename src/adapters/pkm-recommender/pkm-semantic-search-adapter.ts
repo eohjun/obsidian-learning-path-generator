@@ -74,9 +74,12 @@ export class PKMSemanticSearchAdapter implements ISemanticSearchService {
   isAvailable(): boolean {
     const plugin = this.getPlugin();
     if (!plugin) {
+      console.log('[PKMSemanticSearchAdapter] isAvailable: false (plugin not found)');
       return false;
     }
-    return plugin.isEmbeddingServiceReady();
+    const ready = plugin.isEmbeddingServiceReady();
+    console.log('[PKMSemanticSearchAdapter] isAvailable:', ready, '(embedding service ready:', ready, ')');
+    return ready;
   }
 
   /**

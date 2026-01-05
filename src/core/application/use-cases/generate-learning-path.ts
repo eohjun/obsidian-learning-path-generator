@@ -86,6 +86,17 @@ export class GenerateLearningPathUseCase {
       const useLLM = (request.useLLMAnalysis !== false && this.aiService?.isAvailable()) ?? false;
       const useSemanticSearch = this.semanticSearchService?.isAvailable() ?? false;
 
+      // 디버그 로그
+      console.log('[LearningPath] Algorithm selection:', {
+        useLLM,
+        useSemanticSearch,
+        aiServiceExists: !!this.aiService,
+        aiServiceAvailable: this.aiService?.isAvailable() ?? false,
+        semanticServiceExists: !!this.semanticSearchService,
+        semanticServiceAvailable: this.semanticSearchService?.isAvailable() ?? false,
+        requestUseLLMAnalysis: request.useLLMAnalysis,
+      });
+
       let sortedNodeIds: string[];
       let levels: string[][] = [];
       let estimatedMinutes: Record<string, number> = {};
@@ -94,7 +105,7 @@ export class GenerateLearningPathUseCase {
 
       if (useLLM && useSemanticSearch) {
         // 새 알고리즘: LLM 개념 추출 + 의미 검색
-        console.log('[LearningPath] Using semantic search algorithm');
+        console.log('[LearningPath] ✓ Using NEW semantic search algorithm');
         const result = await this.executeWithSemanticSearch(goalNote, allNotes, noteMap);
 
         if (result.success) {
@@ -116,10 +127,13 @@ export class GenerateLearningPathUseCase {
         }
       } else {
         // Fallback: 링크 기반 분석
+        console.log('[LearningPath] ✗ Using FALLBACK link-based algorithm');
         if (!useLLM) {
+          console.log('[LearningPath] Reason: LLM not available');
           warnings.push('LLM 분석이 비활성화되어 링크 기반 분석을 수행합니다.');
         }
         if (!useSemanticSearch) {
+          console.log('[LearningPath] Reason: PKM Note Recommender not available');
           warnings.push('PKM Note Recommender 연동 불가, 링크 기반 분석을 수행합니다.');
         }
 
