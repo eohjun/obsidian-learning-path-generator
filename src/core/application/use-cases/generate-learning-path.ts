@@ -2,13 +2,15 @@
  * GenerateLearningPathUseCase
  * 학습 경로 생성 유스케이스
  *
- * 노트들 간의 링크 관계를 분석하여 학습 경로를 생성합니다.
+ * LLM을 사용하여 노트 내용을 분석하고 최적의 학습 경로를 생성합니다.
+ * LLM이 없으면 링크 기반 분석으로 fallback합니다.
  */
 
 import {
   INoteRepository,
   NoteData,
   IPathRepository,
+  ILLMProvider,
   DependencyAnalyzer,
   DependencyRelation,
   LearningPath,
@@ -24,7 +26,8 @@ export class GenerateLearningPathUseCase {
   constructor(
     private readonly noteRepository: INoteRepository,
     private readonly pathRepository: IPathRepository,
-    private readonly dependencyAnalyzer: DependencyAnalyzer
+    private readonly dependencyAnalyzer: DependencyAnalyzer,
+    private readonly llmProvider?: ILLMProvider
   ) {}
 
   async execute(request: GeneratePathRequest): Promise<GeneratePathResponse> {
@@ -61,45 +64,68 @@ export class GenerateLearningPathUseCase {
         };
       }
 
-      // 3. Extract dependencies from link structure
-      const dependencies = this.extractDependencies(notes, targetNoteIds);
+      // 3. Get target notes data
+      const nodeMap = new Map(notes.map((n) => [n.id, n]));
+      const targetNotes = targetNoteIds
+        .map((id) => nodeMap.get(id))
+        .filter((n): n is NoteData => n !== null);
 
-      // 4. Build dependency graph
-      const graph = this.dependencyAnalyzer.buildGraph(
-        targetNoteIds,
-        dependencies
-      );
+      // 4. Determine goal note
+      const goalNoteId =
+        request.goalNoteId || targetNoteIds[targetNoteIds.length - 1];
+      const goalNote = nodeMap.get(goalNoteId);
 
-      // 5. Check for cycles
-      const hasCycle = this.dependencyAnalyzer.detectCycle(graph);
-      let sortedNodeIds: string[];
-
-      if (hasCycle) {
-        warnings.push(
-          'Circular dependency detected. Some ordering may be arbitrary.'
-        );
-        // Fallback: use original order but remove cycle edges
-        sortedNodeIds = this.sortWithCycleFallback(targetNoteIds, dependencies);
-      } else {
-        // 6. Topological sort for learning order
-        sortedNodeIds = this.dependencyAnalyzer.topologicalSort(graph);
+      if (!goalNote) {
+        return {
+          success: false,
+          error: `Goal note not found: ${goalNoteId}`,
+        };
       }
 
-      // 7. Get levels for parallel learning
+      // 5. Try LLM analysis first, fallback to link-based
+      let sortedNodeIds: string[];
       let levels: string[][] = [];
-      if (!hasCycle) {
-        try {
-          levels = this.dependencyAnalyzer.getLevels(graph);
-        } catch {
-          // If getLevels fails, use single level
-          levels = [sortedNodeIds];
+      let estimatedMinutes: Record<string, number> = {};
+      let knowledgeGaps: string[] = [];
+
+      const useLLM = request.useLLMAnalysis !== false && this.llmProvider;
+
+      if (useLLM && (await this.llmProvider!.isAvailable())) {
+        // LLM-powered analysis
+        const llmResult = await this.analyzewithLLM(goalNote, targetNotes);
+
+        if (llmResult.success) {
+          sortedNodeIds = llmResult.learningOrder;
+          estimatedMinutes = llmResult.estimatedMinutes;
+          knowledgeGaps = llmResult.knowledgeGaps;
+          levels = [sortedNodeIds]; // Simple single level for now
+
+          if (knowledgeGaps.length > 0) {
+            warnings.push(`지식 갭 발견: ${knowledgeGaps.join(', ')}`);
+          }
+        } else {
+          warnings.push(`LLM 분석 실패, 링크 기반 분석으로 전환: ${llmResult.error}`);
+          const linkResult = this.analyzeWithLinks(targetNoteIds, notes);
+          sortedNodeIds = linkResult.sortedIds;
+          levels = linkResult.levels;
+          if (linkResult.hasCycle) {
+            warnings.push('Circular dependency detected. Some ordering may be arbitrary.');
+          }
         }
       } else {
-        levels = [sortedNodeIds];
+        // Link-based analysis (fallback)
+        if (!useLLM) {
+          warnings.push('LLM 분석이 비활성화되어 링크 기반 분석을 수행합니다.');
+        }
+        const linkResult = this.analyzeWithLinks(targetNoteIds, notes);
+        sortedNodeIds = linkResult.sortedIds;
+        levels = linkResult.levels;
+        if (linkResult.hasCycle) {
+          warnings.push('Circular dependency detected. Some ordering may be arbitrary.');
+        }
       }
 
-      // 8. Create LearningNodes
-      const nodeMap = new Map(notes.map((n) => [n.id, n]));
+      // 6. Create LearningNodes
       const learningNodes: LearningNode[] = sortedNodeIds
         .map((id, index) => {
           const note = nodeMap.get(id);
@@ -110,25 +136,23 @@ export class GenerateLearningPathUseCase {
             title: note.basename,
             order: index,
             masteryLevel: MasteryLevel.notStarted(),
+            estimatedMinutes: estimatedMinutes[note.basename] || 15,
           });
         })
         .filter((n): n is LearningNode => n !== null);
 
-      // 9. Determine goal note
-      const goalNoteId =
-        request.goalNoteId || sortedNodeIds[sortedNodeIds.length - 1];
-      const goalNote = nodeMap.get(goalNoteId);
+      // 7. Determine goal note title
       const goalNoteTitle = request.name || goalNote?.basename || goalNoteId;
 
-      // 10. Create LearningPath with nodes
-      let path = LearningPath.create({
+      // 8. Create LearningPath with nodes
+      const path = LearningPath.create({
         id: this.generateId(),
         goalNoteId,
         goalNoteTitle,
         nodes: learningNodes,
       });
 
-      // 11. Save path to repository
+      // 9. Save path to repository
       await this.pathRepository.save(path);
 
       return {
@@ -145,6 +169,118 @@ export class GenerateLearningPathUseCase {
           error instanceof Error ? error.message : 'Unknown error occurred',
       };
     }
+  }
+
+  /**
+   * LLM을 사용한 학습 경로 분석
+   */
+  private async analyzewithLLM(
+    goalNote: NoteData,
+    targetNotes: NoteData[]
+  ): Promise<{
+    success: boolean;
+    learningOrder: string[];
+    estimatedMinutes: Record<string, number>;
+    knowledgeGaps: string[];
+    error?: string;
+  }> {
+    if (!this.llmProvider) {
+      return {
+        success: false,
+        learningOrder: [],
+        estimatedMinutes: {},
+        knowledgeGaps: [],
+        error: 'LLM provider not available',
+      };
+    }
+
+    // Use the specialized method if available
+    const provider = this.llmProvider as any;
+    if (typeof provider.analyzeNotesForLearningPath === 'function') {
+      const relatedNotes = targetNotes
+        .filter((n) => n.id !== goalNote.id)
+        .map((n) => ({ title: n.basename, content: n.content }));
+
+      const result = await provider.analyzeNotesForLearningPath(
+        { title: goalNote.basename, content: goalNote.content },
+        relatedNotes
+      );
+
+      if (result.success && result.data) {
+        return {
+          success: true,
+          learningOrder: result.data.learningOrder,
+          estimatedMinutes: result.data.estimatedMinutes,
+          knowledgeGaps: result.data.knowledgeGaps,
+        };
+      } else {
+        return {
+          success: false,
+          learningOrder: [],
+          estimatedMinutes: {},
+          knowledgeGaps: [],
+          error: result.error || 'LLM analysis failed',
+        };
+      }
+    }
+
+    // Fallback to suggestLearningOrder
+    const concepts = targetNotes.map((n) => n.basename);
+    const result = await this.llmProvider.suggestLearningOrder(concepts, []);
+
+    if (result.success && result.data) {
+      return {
+        success: true,
+        learningOrder: result.data,
+        estimatedMinutes: {},
+        knowledgeGaps: [],
+      };
+    }
+
+    return {
+      success: false,
+      learningOrder: [],
+      estimatedMinutes: {},
+      knowledgeGaps: [],
+      error: result.error || 'LLM analysis failed',
+    };
+  }
+
+  /**
+   * 링크 기반 학습 경로 분석 (fallback)
+   */
+  private analyzeWithLinks(
+    targetNoteIds: string[],
+    notes: NoteData[]
+  ): {
+    sortedIds: string[];
+    levels: string[][];
+    hasCycle: boolean;
+  } {
+    // Extract dependencies from link structure
+    const dependencies = this.extractDependencies(notes, targetNoteIds);
+
+    // Build dependency graph
+    const graph = this.dependencyAnalyzer.buildGraph(targetNoteIds, dependencies);
+
+    // Check for cycles
+    const hasCycle = this.dependencyAnalyzer.detectCycle(graph);
+    let sortedIds: string[];
+    let levels: string[][] = [];
+
+    if (hasCycle) {
+      sortedIds = this.sortWithCycleFallback(targetNoteIds, dependencies);
+      levels = [sortedIds];
+    } else {
+      sortedIds = this.dependencyAnalyzer.topologicalSort(graph);
+      try {
+        levels = this.dependencyAnalyzer.getLevels(graph);
+      } catch {
+        levels = [sortedIds];
+      }
+    }
+
+    return { sortedIds, levels, hasCycle };
   }
 
   /**
@@ -316,23 +452,6 @@ export class GenerateLearningPathUseCase {
     }
 
     return result;
-  }
-
-  /**
-   * 순환 의존성을 제거한 의존 관계 반환
-   */
-  private removeCyclicDependencies(
-    dependencies: DependencyRelation[],
-    sortedIds: string[]
-  ): DependencyRelation[] {
-    const orderMap = new Map(sortedIds.map((id, i) => [id, i]));
-
-    return dependencies.filter((dep) => {
-      const sourceOrder = orderMap.get(dep.sourceId) ?? -1;
-      const targetOrder = orderMap.get(dep.targetId) ?? -1;
-      // Keep only forward edges
-      return sourceOrder < targetOrder;
-    });
   }
 
   /**

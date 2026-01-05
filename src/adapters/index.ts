@@ -6,3 +6,6 @@ export {
   type PathRepositoryConfig,
   type ProgressRepositoryConfig,
 } from './repositories';
+
+// LLM Providers
+export { ClaudeLLMProvider, type ClaudeProviderConfig } from './llm';

@@ -5,6 +5,21 @@
 
 export interface LearningPathSettings {
   /**
+   * Claude API 키
+   */
+  claudeApiKey: string;
+
+  /**
+   * Claude 모델
+   */
+  claudeModel: string;
+
+  /**
+   * LLM 분석 사용 여부
+   */
+  useLLMAnalysis: boolean;
+
+  /**
    * 학습 경로 데이터 저장 폴더
    */
   storagePath: string;
@@ -41,6 +56,9 @@ export interface LearningPathSettings {
 }
 
 export const DEFAULT_SETTINGS: LearningPathSettings = {
+  claudeApiKey: '',
+  claudeModel: 'claude-sonnet-4-20250514',
+  useLLMAnalysis: true,
   storagePath: '.learning-paths',
   masteryLevelKey: 'learning_mastery',
   lastStudiedKey: 'learning_last_studied',

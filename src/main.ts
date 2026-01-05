@@ -14,6 +14,7 @@ import {
   NoteRepository,
   PathRepository,
   ProgressRepository,
+  ClaudeLLMProvider,
 } from './adapters';
 import { LearningPathView, VIEW_TYPE_LEARNING_PATH } from './ui';
 import {
@@ -29,6 +30,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   private pathRepository!: PathRepository;
   private progressRepository!: ProgressRepository;
   private dependencyAnalyzer!: DependencyAnalyzer;
+  private llmProvider?: ClaudeLLMProvider;
   private generatePathUseCase!: GenerateLearningPathUseCase;
   private updateProgressUseCase!: UpdateProgressUseCase;
 
@@ -52,11 +54,20 @@ export default class LearningPathGeneratorPlugin extends Plugin {
     // Initialize domain services
     this.dependencyAnalyzer = new DependencyAnalyzer();
 
+    // Initialize LLM provider if API key is configured
+    if (this.settings.claudeApiKey) {
+      this.llmProvider = new ClaudeLLMProvider({
+        apiKey: this.settings.claudeApiKey,
+        model: this.settings.claudeModel,
+      });
+    }
+
     // Initialize use cases
     this.generatePathUseCase = new GenerateLearningPathUseCase(
       this.noteRepository,
       this.pathRepository,
-      this.dependencyAnalyzer
+      this.dependencyAnalyzer,
+      this.settings.useLLMAnalysis ? this.llmProvider : undefined
     );
 
     this.updateProgressUseCase = new UpdateProgressUseCase(
@@ -148,11 +159,22 @@ export default class LearningPathGeneratorPlugin extends Plugin {
       studyCountKey: this.settings.studyCountKey,
     });
 
+    // Reinitialize LLM provider
+    if (this.settings.claudeApiKey) {
+      this.llmProvider = new ClaudeLLMProvider({
+        apiKey: this.settings.claudeApiKey,
+        model: this.settings.claudeModel,
+      });
+    } else {
+      this.llmProvider = undefined;
+    }
+
     // Update use cases with new repositories
     this.generatePathUseCase = new GenerateLearningPathUseCase(
       this.noteRepository,
       this.pathRepository,
-      this.dependencyAnalyzer
+      this.dependencyAnalyzer,
+      this.settings.useLLMAnalysis ? this.llmProvider : undefined
     );
     this.updateProgressUseCase = new UpdateProgressUseCase(
       this.pathRepository,

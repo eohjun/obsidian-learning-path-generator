@@ -21,6 +21,49 @@ export class LearningPathSettingTab extends PluginSettingTab {
 
     containerEl.createEl('h2', { text: '학습 경로 생성기 설정' });
 
+    // LLM Settings
+    containerEl.createEl('h3', { text: 'AI 설정 (Claude)' });
+
+    new Setting(containerEl)
+      .setName('Claude API 키')
+      .setDesc('Anthropic Claude API 키를 입력하세요. https://console.anthropic.com 에서 발급받을 수 있습니다.')
+      .addText((text) =>
+        text
+          .setPlaceholder('sk-ant-...')
+          .setValue(this.plugin.settings.claudeApiKey)
+          .onChange(async (value) => {
+            this.plugin.settings.claudeApiKey = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName('Claude 모델')
+      .setDesc('사용할 Claude 모델을 선택하세요')
+      .addDropdown((dropdown) =>
+        dropdown
+          .addOption('claude-sonnet-4-20250514', 'Claude Sonnet 4 (추천)')
+          .addOption('claude-3-5-sonnet-20241022', 'Claude 3.5 Sonnet')
+          .addOption('claude-3-haiku-20240307', 'Claude 3 Haiku (빠름)')
+          .setValue(this.plugin.settings.claudeModel)
+          .onChange(async (value) => {
+            this.plugin.settings.claudeModel = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName('AI 분석 사용')
+      .setDesc('AI를 사용하여 학습 경로를 분석합니다. 비활성화하면 링크 기반 분석만 수행합니다.')
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.useLLMAnalysis)
+          .onChange(async (value) => {
+            this.plugin.settings.useLLMAnalysis = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
     // Storage Settings
     containerEl.createEl('h3', { text: '저장소 설정' });
 
@@ -129,7 +172,7 @@ export class LearningPathSettingTab extends PluginSettingTab {
 
     const aboutEl = containerEl.createDiv({ cls: 'setting-item' });
     aboutEl.createEl('p', {
-      text: 'Learning Path Generator v0.1.0',
+      text: 'Learning Path Generator v0.2.0',
       cls: 'setting-item-description',
     });
     aboutEl.createEl('p', {
