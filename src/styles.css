@@ -495,7 +495,7 @@
 
 .learning-path-gap-item.priority-medium .learning-path-gap-badge {
   background: var(--color-yellow);
-  color: var(--text-normal);
+  color: black;
 }
 
 .learning-path-gap-item.priority-low .learning-path-gap-badge {
