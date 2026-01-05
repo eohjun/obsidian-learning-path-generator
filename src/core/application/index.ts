@@ -17,3 +17,12 @@ export {
   GenerateLearningPathUseCase,
   UpdateProgressUseCase,
 } from './use-cases';
+
+// Services
+export {
+  AIService,
+  initializeAIService,
+  getAIService,
+  destroyAIService,
+  type AISettings,
+} from './services';

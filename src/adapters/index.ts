@@ -8,4 +8,10 @@ export {
 } from './repositories';
 
 // LLM Providers
-export { ClaudeLLMProvider, type ClaudeProviderConfig } from './llm';
+export {
+  BaseProvider,
+  ClaudeProvider,
+  OpenAIProvider,
+  GeminiProvider,
+  GrokProvider,
+} from './llm';

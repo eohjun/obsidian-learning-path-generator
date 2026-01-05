@@ -3,12 +3,17 @@
  * 플러그인 설정 탭 UI
  */
 
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, PluginSettingTab, Setting, Notice, DropdownComponent } from 'obsidian';
 import type LearningPathGeneratorPlugin from '../main';
-import { LearningPathSettings } from './settings';
+import {
+  AIProviderType,
+  AI_PROVIDERS,
+  getModelsByProvider,
+} from '../core/domain';
 
 export class LearningPathSettingTab extends PluginSettingTab {
   plugin: LearningPathGeneratorPlugin;
+  private modelDropdown: DropdownComponent | null = null;
 
   constructor(app: App, plugin: LearningPathGeneratorPlugin) {
     super(app, plugin);
@@ -21,48 +26,8 @@ export class LearningPathSettingTab extends PluginSettingTab {
 
     containerEl.createEl('h2', { text: '학습 경로 생성기 설정' });
 
-    // LLM Settings
-    containerEl.createEl('h3', { text: 'AI 설정 (Claude)' });
-
-    new Setting(containerEl)
-      .setName('Claude API 키')
-      .setDesc('Anthropic Claude API 키를 입력하세요. https://console.anthropic.com 에서 발급받을 수 있습니다.')
-      .addText((text) =>
-        text
-          .setPlaceholder('sk-ant-...')
-          .setValue(this.plugin.settings.claudeApiKey)
-          .onChange(async (value) => {
-            this.plugin.settings.claudeApiKey = value;
-            await this.plugin.saveSettings();
-          })
-      );
-
-    new Setting(containerEl)
-      .setName('Claude 모델')
-      .setDesc('사용할 Claude 모델을 선택하세요')
-      .addDropdown((dropdown) =>
-        dropdown
-          .addOption('claude-sonnet-4-20250514', 'Claude Sonnet 4 (추천)')
-          .addOption('claude-3-5-sonnet-20241022', 'Claude 3.5 Sonnet')
-          .addOption('claude-3-haiku-20240307', 'Claude 3 Haiku (빠름)')
-          .setValue(this.plugin.settings.claudeModel)
-          .onChange(async (value) => {
-            this.plugin.settings.claudeModel = value;
-            await this.plugin.saveSettings();
-          })
-      );
-
-    new Setting(containerEl)
-      .setName('AI 분석 사용')
-      .setDesc('AI를 사용하여 학습 경로를 분석합니다. 비활성화하면 링크 기반 분석만 수행합니다.')
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.useLLMAnalysis)
-          .onChange(async (value) => {
-            this.plugin.settings.useLLMAnalysis = value;
-            await this.plugin.saveSettings();
-          })
-      );
+    // AI Settings Section
+    this.displayAISettings(containerEl);
 
     // Storage Settings
     containerEl.createEl('h3', { text: '저장소 설정' });
@@ -172,12 +137,133 @@ export class LearningPathSettingTab extends PluginSettingTab {
 
     const aboutEl = containerEl.createDiv({ cls: 'setting-item' });
     aboutEl.createEl('p', {
-      text: 'Learning Path Generator v0.2.0',
+      text: 'Learning Path Generator v0.3.0',
       cls: 'setting-item-description',
     });
     aboutEl.createEl('p', {
       text: '볼트의 노트들로부터 학습 경로와 커리큘럼을 생성합니다.',
       cls: 'setting-item-description',
     });
+  }
+
+  private displayAISettings(containerEl: HTMLElement): void {
+    containerEl.createEl('h3', { text: 'AI 설정' });
+
+    const currentProvider = this.plugin.settings.ai.provider;
+    const currentProviderConfig = AI_PROVIDERS[currentProvider as keyof typeof AI_PROVIDERS];
+
+    // Enable AI toggle
+    new Setting(containerEl)
+      .setName('AI 분석 사용')
+      .setDesc('AI를 사용하여 학습 경로를 분석합니다. 비활성화하면 링크 기반 분석만 수행합니다.')
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.ai.enabled)
+          .onChange(async (value) => {
+            this.plugin.settings.ai.enabled = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    // Provider selection
+    new Setting(containerEl)
+      .setName('AI 프로바이더')
+      .setDesc('사용할 AI 서비스를 선택하세요')
+      .addDropdown((dropdown) => {
+        Object.entries(AI_PROVIDERS).forEach(([key, config]) => {
+          dropdown.addOption(key, config.displayName);
+        });
+        dropdown.setValue(currentProvider);
+        dropdown.onChange(async (value) => {
+          this.plugin.settings.ai.provider = value as AIProviderType;
+          await this.plugin.saveSettings();
+          this.display(); // Refresh to update model dropdown
+        });
+      });
+
+    // API Key input with Test button
+    new Setting(containerEl)
+      .setName(`${currentProviderConfig.displayName} API 키`)
+      .setDesc(this.getApiKeyDescription(currentProvider))
+      .addText((text) => {
+        text
+          .setPlaceholder('API 키 입력')
+          .setValue(this.plugin.settings.ai.apiKeys[currentProvider] ?? '')
+          .onChange(async (value) => {
+            this.plugin.settings.ai.apiKeys[currentProvider] = value;
+            await this.plugin.saveSettings();
+          });
+        text.inputEl.type = 'password';
+        text.inputEl.style.width = '300px';
+      })
+      .addButton((button) => {
+        button
+          .setButtonText('테스트')
+          .onClick(async () => {
+            const apiKey = this.plugin.settings.ai.apiKeys[currentProvider];
+
+            if (!apiKey) {
+              new Notice('API 키를 먼저 입력해주세요.');
+              return;
+            }
+
+            button.setDisabled(true);
+            button.setButtonText('테스트 중...');
+
+            try {
+              const isValid = await this.plugin.testApiKey(currentProvider, apiKey);
+              if (isValid) {
+                new Notice(`✅ ${currentProviderConfig.displayName} API 키가 유효합니다!`);
+              } else {
+                new Notice(`❌ ${currentProviderConfig.displayName} API 키가 유효하지 않습니다.`);
+              }
+            } catch (error) {
+              const message = error instanceof Error ? error.message : '알 수 없는 오류';
+              new Notice(`❌ 테스트 실패: ${message}`);
+            } finally {
+              button.setDisabled(false);
+              button.setButtonText('테스트');
+            }
+          });
+      });
+
+    // Model selection
+    new Setting(containerEl)
+      .setName('모델')
+      .setDesc('사용할 모델을 선택하세요')
+      .addDropdown((dropdown) => {
+        this.modelDropdown = dropdown;
+        this.populateModelDropdown(dropdown, currentProvider);
+        dropdown.setValue(
+          this.plugin.settings.ai.models[currentProvider] ??
+            currentProviderConfig.defaultModel
+        );
+        dropdown.onChange(async (value) => {
+          this.plugin.settings.ai.models[currentProvider] = value;
+          await this.plugin.saveSettings();
+        });
+      });
+  }
+
+  private populateModelDropdown(dropdown: DropdownComponent, provider: AIProviderType): void {
+    const models = getModelsByProvider(provider);
+    models.forEach((model) => {
+      dropdown.addOption(model.id, model.displayName);
+    });
+  }
+
+  private getApiKeyDescription(provider: AIProviderType): string {
+    switch (provider) {
+      case 'claude':
+        return 'https://console.anthropic.com 에서 발급받을 수 있습니다.';
+      case 'openai':
+        return 'https://platform.openai.com 에서 발급받을 수 있습니다.';
+      case 'gemini':
+        return 'https://aistudio.google.com 에서 발급받을 수 있습니다.';
+      case 'grok':
+        return 'https://console.x.ai 에서 발급받을 수 있습니다.';
+      default:
+        return 'API 키를 입력하세요.';
+    }
   }
 }

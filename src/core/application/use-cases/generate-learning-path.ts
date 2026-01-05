@@ -10,7 +10,6 @@ import {
   INoteRepository,
   NoteData,
   IPathRepository,
-  ILLMProvider,
   DependencyAnalyzer,
   DependencyRelation,
   LearningPath,
@@ -21,13 +20,14 @@ import {
   GeneratePathRequest,
   GeneratePathResponse,
 } from '../dtos/generate-path.dto';
+import { AIService } from '../services';
 
 export class GenerateLearningPathUseCase {
   constructor(
     private readonly noteRepository: INoteRepository,
     private readonly pathRepository: IPathRepository,
     private readonly dependencyAnalyzer: DependencyAnalyzer,
-    private readonly llmProvider?: ILLMProvider
+    private readonly aiService?: AIService
   ) {}
 
   async execute(request: GeneratePathRequest): Promise<GeneratePathResponse> {
@@ -88,9 +88,9 @@ export class GenerateLearningPathUseCase {
       let estimatedMinutes: Record<string, number> = {};
       let knowledgeGaps: string[] = [];
 
-      const useLLM = request.useLLMAnalysis !== false && this.llmProvider;
+      const useLLM = request.useLLMAnalysis !== false && this.aiService;
 
-      if (useLLM && (await this.llmProvider!.isAvailable())) {
+      if (useLLM && this.aiService!.isAvailable()) {
         // LLM-powered analysis
         const llmResult = await this.analyzewithLLM(goalNote, targetNotes);
 
@@ -184,56 +184,31 @@ export class GenerateLearningPathUseCase {
     knowledgeGaps: string[];
     error?: string;
   }> {
-    if (!this.llmProvider) {
+    if (!this.aiService || !this.aiService.isAvailable()) {
       return {
         success: false,
         learningOrder: [],
         estimatedMinutes: {},
         knowledgeGaps: [],
-        error: 'LLM provider not available',
+        error: 'AI service not available',
       };
     }
 
-    // Use the specialized method if available
-    const provider = this.llmProvider as any;
-    if (typeof provider.analyzeNotesForLearningPath === 'function') {
-      const relatedNotes = targetNotes
-        .filter((n) => n.id !== goalNote.id)
-        .map((n) => ({ title: n.basename, content: n.content }));
+    const relatedNotes = targetNotes
+      .filter((n) => n.id !== goalNote.id)
+      .map((n) => ({ title: n.basename, content: n.content }));
 
-      const result = await provider.analyzeNotesForLearningPath(
-        { title: goalNote.basename, content: goalNote.content },
-        relatedNotes
-      );
-
-      if (result.success && result.data) {
-        return {
-          success: true,
-          learningOrder: result.data.learningOrder,
-          estimatedMinutes: result.data.estimatedMinutes,
-          knowledgeGaps: result.data.knowledgeGaps,
-        };
-      } else {
-        return {
-          success: false,
-          learningOrder: [],
-          estimatedMinutes: {},
-          knowledgeGaps: [],
-          error: result.error || 'LLM analysis failed',
-        };
-      }
-    }
-
-    // Fallback to suggestLearningOrder
-    const concepts = targetNotes.map((n) => n.basename);
-    const result = await this.llmProvider.suggestLearningOrder(concepts, []);
+    const result = await this.aiService.analyzeNotesForLearningPath(
+      { title: goalNote.basename, content: goalNote.content },
+      relatedNotes
+    );
 
     if (result.success && result.data) {
       return {
         success: true,
-        learningOrder: result.data,
-        estimatedMinutes: {},
-        knowledgeGaps: [],
+        learningOrder: result.data.learningOrder,
+        estimatedMinutes: result.data.estimatedMinutes,
+        knowledgeGaps: result.data.knowledgeGaps,
       };
     }
 

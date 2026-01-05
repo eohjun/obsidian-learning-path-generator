@@ -13,6 +13,11 @@ export {
 export {
   type ILLMProvider,
   type LLMResponse,
+  type LLMMessage,
+  type LLMGenerateOptions,
+  type LLMUsage,
+  type AIProviderType,
   type DependencyAnalysisResult,
   type KnowledgeGapAnalysisResult,
+  type LearningPathAnalysisResult,
 } from './llm-provider.interface';

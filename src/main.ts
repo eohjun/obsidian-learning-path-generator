@@ -5,16 +5,26 @@
  */
 
 import { Plugin, WorkspaceLeaf, Notice } from 'obsidian';
-import { DependencyAnalyzer } from './core/domain';
+import {
+  DependencyAnalyzer,
+  AIProviderType,
+  AI_PROVIDERS,
+} from './core/domain';
 import {
   GenerateLearningPathUseCase,
   UpdateProgressUseCase,
+  AIService,
+  initializeAIService,
+  destroyAIService,
 } from './core/application';
 import {
   NoteRepository,
   PathRepository,
   ProgressRepository,
-  ClaudeLLMProvider,
+  ClaudeProvider,
+  OpenAIProvider,
+  GeminiProvider,
+  GrokProvider,
 } from './adapters';
 import { LearningPathView, VIEW_TYPE_LEARNING_PATH } from './ui';
 import {
@@ -30,7 +40,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   private pathRepository!: PathRepository;
   private progressRepository!: ProgressRepository;
   private dependencyAnalyzer!: DependencyAnalyzer;
-  private llmProvider?: ClaudeLLMProvider;
+  private aiService!: AIService;
   private generatePathUseCase!: GenerateLearningPathUseCase;
   private updateProgressUseCase!: UpdateProgressUseCase;
 
@@ -54,20 +64,15 @@ export default class LearningPathGeneratorPlugin extends Plugin {
     // Initialize domain services
     this.dependencyAnalyzer = new DependencyAnalyzer();
 
-    // Initialize LLM provider if API key is configured
-    if (this.settings.claudeApiKey) {
-      this.llmProvider = new ClaudeLLMProvider({
-        apiKey: this.settings.claudeApiKey,
-        model: this.settings.claudeModel,
-      });
-    }
+    // Initialize AI Service
+    this.initializeAIService();
 
     // Initialize use cases
     this.generatePathUseCase = new GenerateLearningPathUseCase(
       this.noteRepository,
       this.pathRepository,
       this.dependencyAnalyzer,
-      this.settings.useLLMAnalysis ? this.llmProvider : undefined
+      this.aiService
     );
 
     this.updateProgressUseCase = new UpdateProgressUseCase(
@@ -128,13 +133,38 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   onunload(): void {
     console.log('Unloading Learning Path Generator plugin');
     this.app.workspace.detachLeavesOfType(VIEW_TYPE_LEARNING_PATH);
+    destroyAIService();
   }
 
   /**
    * 설정 로드
    */
   async loadSettings(): Promise<void> {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const loadedData = await this.loadData();
+    this.settings = this.mergeSettings(DEFAULT_SETTINGS, loadedData);
+  }
+
+  /**
+   * 설정 병합 (기존 설정과 기본값 병합)
+   */
+  private mergeSettings(defaults: LearningPathSettings, loaded: any): LearningPathSettings {
+    if (!loaded) return { ...defaults };
+
+    return {
+      ai: {
+        provider: loaded.ai?.provider ?? loaded.claudeModel ? 'claude' : defaults.ai.provider,
+        apiKeys: loaded.ai?.apiKeys ?? (loaded.claudeApiKey ? { claude: loaded.claudeApiKey } : defaults.ai.apiKeys),
+        models: loaded.ai?.models ?? (loaded.claudeModel ? { claude: loaded.claudeModel } : defaults.ai.models),
+        enabled: loaded.ai?.enabled ?? loaded.useLLMAnalysis ?? defaults.ai.enabled,
+      },
+      storagePath: loaded.storagePath ?? defaults.storagePath,
+      masteryLevelKey: loaded.masteryLevelKey ?? defaults.masteryLevelKey,
+      lastStudiedKey: loaded.lastStudiedKey ?? defaults.lastStudiedKey,
+      studyCountKey: loaded.studyCountKey ?? defaults.studyCountKey,
+      excludeFolders: loaded.excludeFolders ?? defaults.excludeFolders,
+      defaultEstimatedMinutes: loaded.defaultEstimatedMinutes ?? defaults.defaultEstimatedMinutes,
+      autoOpenView: loaded.autoOpenView ?? defaults.autoOpenView,
+    };
   }
 
   /**
@@ -142,14 +172,32 @@ export default class LearningPathGeneratorPlugin extends Plugin {
    */
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
-    // Reinitialize repositories with new settings
-    this.reinitializeRepositories();
+    // Reinitialize services with new settings
+    this.reinitializeServices();
   }
 
   /**
-   * 설정 변경 시 리포지토리 재초기화
+   * AI Service 초기화
    */
-  private reinitializeRepositories(): void {
+  private initializeAIService(): void {
+    this.aiService = initializeAIService({
+      provider: this.settings.ai.provider,
+      apiKeys: this.settings.ai.apiKeys,
+      models: this.settings.ai.models,
+      enabled: this.settings.ai.enabled,
+    });
+
+    // Register all providers
+    this.aiService.registerProvider('claude', new ClaudeProvider());
+    this.aiService.registerProvider('openai', new OpenAIProvider());
+    this.aiService.registerProvider('gemini', new GeminiProvider());
+    this.aiService.registerProvider('grok', new GrokProvider());
+  }
+
+  /**
+   * 설정 변경 시 서비스 재초기화
+   */
+  private reinitializeServices(): void {
     this.pathRepository = new PathRepository(this.app, {
       storagePath: this.settings.storagePath,
     });
@@ -159,27 +207,32 @@ export default class LearningPathGeneratorPlugin extends Plugin {
       studyCountKey: this.settings.studyCountKey,
     });
 
-    // Reinitialize LLM provider
-    if (this.settings.claudeApiKey) {
-      this.llmProvider = new ClaudeLLMProvider({
-        apiKey: this.settings.claudeApiKey,
-        model: this.settings.claudeModel,
-      });
-    } else {
-      this.llmProvider = undefined;
-    }
+    // Update AI Service settings
+    this.aiService.updateSettings({
+      provider: this.settings.ai.provider,
+      apiKeys: this.settings.ai.apiKeys,
+      models: this.settings.ai.models,
+      enabled: this.settings.ai.enabled,
+    });
 
-    // Update use cases with new repositories
+    // Update use cases with new services
     this.generatePathUseCase = new GenerateLearningPathUseCase(
       this.noteRepository,
       this.pathRepository,
       this.dependencyAnalyzer,
-      this.settings.useLLMAnalysis ? this.llmProvider : undefined
+      this.aiService
     );
     this.updateProgressUseCase = new UpdateProgressUseCase(
       this.pathRepository,
       this.progressRepository
     );
+  }
+
+  /**
+   * API 키 테스트
+   */
+  async testApiKey(provider: AIProviderType, apiKey: string): Promise<boolean> {
+    return this.aiService.testApiKey(provider, apiKey);
   }
 
   /**

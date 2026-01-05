@@ -28,9 +28,24 @@ export {
   type ProgressData,
   type ILLMProvider,
   type LLMResponse,
+  type LLMMessage,
+  type LLMGenerateOptions,
+  type LLMUsage,
+  type AIProviderType,
   type DependencyAnalysisResult,
   type KnowledgeGapAnalysisResult,
+  type LearningPathAnalysisResult,
 } from './interfaces';
+
+// Constants
+export {
+  AI_PROVIDERS,
+  MODEL_CONFIGS,
+  getModelsByProvider,
+  getModelConfig,
+  type AIProviderConfig,
+  type ModelConfig,
+} from './constants/model-configs';
 
 // Services
 export { DependencyAnalyzer, type DependencyGraph } from './services';
