@@ -70,6 +70,11 @@
   height: 18px;
 }
 
+.learning-path-header-actions {
+  display: flex;
+  gap: 4px;
+}
+
 .learning-path-menu-btn {
   padding: 4px;
   border-radius: 4px;

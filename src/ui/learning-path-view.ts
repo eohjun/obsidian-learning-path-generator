@@ -142,11 +142,33 @@ export class LearningPathView extends ItemView {
 
     titleEl.createSpan({ text: path.goalNoteTitle });
 
-    const menuBtn = container.createEl('button', {
+    const actionsEl = container.createDiv({ cls: 'learning-path-header-actions' });
+
+    // New path button
+    const newPathBtn = actionsEl.createEl('button', {
       cls: 'learning-path-menu-btn clickable-icon',
+      attr: { 'aria-label': '새 학습 경로 생성' },
     });
-    setIcon(menuBtn, 'more-vertical');
-    menuBtn.addEventListener('click', (e) => this.showPathMenu(e, path));
+    setIcon(newPathBtn, 'plus');
+    newPathBtn.addEventListener('click', () => this.showCreateDialog());
+
+    // Delete path button
+    const deleteBtn = actionsEl.createEl('button', {
+      cls: 'learning-path-menu-btn clickable-icon',
+      attr: { 'aria-label': '경로 삭제' },
+    });
+    setIcon(deleteBtn, 'trash-2');
+    deleteBtn.addEventListener('click', () => this.deletePath(path));
+  }
+
+  /**
+   * 경로 삭제
+   */
+  private async deletePath(path: LearningPath): Promise<void> {
+    // Clear current path and show empty state
+    this.currentPath = null;
+    await this.refresh();
+    new Notice('학습 경로가 삭제되었습니다');
   }
 
   /**
