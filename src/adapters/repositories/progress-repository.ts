@@ -98,8 +98,15 @@ export class ProgressRepository implements IProgressRepository {
     await this.updateFrontmatter(file, {
       [this.config.lastStudiedKey]: date.toISOString(),
     });
+  }
 
-    // Increment study count
+  async incrementStudyCount(noteId: string): Promise<void> {
+    const file = await this.getFileByNoteId(noteId);
+    if (!file) {
+      console.warn(`Note not found: ${noteId}`);
+      return;
+    }
+
     const cache = this.app.metadataCache.getFileCache(file);
     const currentCount = cache?.frontmatter?.[this.config.studyCountKey] ?? 0;
     await this.updateFrontmatter(file, {

@@ -64,6 +64,7 @@ describe('UpdateProgressUseCase', () => {
       updateProgress: jest.fn(),
       getLastStudied: jest.fn(),
       updateLastStudied: jest.fn(),
+      incrementStudyCount: jest.fn(),
       getBulkProgress: jest.fn(),
       resetProgress: jest.fn(),
       resetAllProgress: jest.fn(),

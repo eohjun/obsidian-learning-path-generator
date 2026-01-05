@@ -36,6 +36,11 @@ export interface IProgressRepository {
   updateLastStudied(noteId: string, date: Date): Promise<void>;
 
   /**
+   * 학습 완료 횟수 증가
+   */
+  incrementStudyCount(noteId: string): Promise<void>;
+
+  /**
    * 여러 노트의 진행 상태 일괄 조회
    */
   getBulkProgress(noteIds: string[]): Promise<Map<string, MasteryLevel>>;

@@ -63,13 +63,18 @@ export class UpdateProgressUseCase {
         );
       }
 
-      // 7. Save updated path
+      // 7. Increment study count only on completion
+      if (request.newLevel === MasteryLevelValue.COMPLETED) {
+        await this.progressRepository.incrementStudyCount(request.nodeId);
+      }
+
+      // 8. Save updated path
       await this.pathRepository.save(updatedPath);
 
-      // 8. Calculate statistics
+      // 9. Calculate statistics
       const statistics = updatedPath.getStatistics();
 
-      // 9. Get next recommended nodes
+      // 10. Get next recommended nodes
       const nextRecommendedNodes = this.getNextRecommendedNodes(updatedPath);
 
       return {
