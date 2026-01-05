@@ -15,12 +15,16 @@ import {
   PathRepository,
   ProgressRepository,
 } from './adapters';
+import { LearningPathView, VIEW_TYPE_LEARNING_PATH } from './ui';
 import {
-  LearningPathView,
-  VIEW_TYPE_LEARNING_PATH,
-} from './ui';
+  LearningPathSettings,
+  LearningPathSettingTab,
+  DEFAULT_SETTINGS,
+} from './settings';
 
 export default class LearningPathGeneratorPlugin extends Plugin {
+  settings!: LearningPathSettings;
+
   private noteRepository!: NoteRepository;
   private pathRepository!: PathRepository;
   private progressRepository!: ProgressRepository;
@@ -31,10 +35,19 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   async onload(): Promise<void> {
     console.log('Loading Learning Path Generator plugin');
 
-    // Initialize repositories
+    // Load settings
+    await this.loadSettings();
+
+    // Initialize repositories with settings
     this.noteRepository = new NoteRepository(this.app);
-    this.pathRepository = new PathRepository(this.app);
-    this.progressRepository = new ProgressRepository(this.app);
+    this.pathRepository = new PathRepository(this.app, {
+      storagePath: this.settings.storagePath,
+    });
+    this.progressRepository = new ProgressRepository(this.app, {
+      masteryLevelKey: this.settings.masteryLevelKey,
+      lastStudiedKey: this.settings.lastStudiedKey,
+      studyCountKey: this.settings.studyCountKey,
+    });
 
     // Initialize domain services
     this.dependencyAnalyzer = new DependencyAnalyzer();
@@ -89,11 +102,62 @@ export default class LearningPathGeneratorPlugin extends Plugin {
         return false;
       },
     });
+
+    // Add settings tab
+    this.addSettingTab(new LearningPathSettingTab(this.app, this));
+
+    // Auto-open view if enabled
+    if (this.settings.autoOpenView) {
+      this.app.workspace.onLayoutReady(() => {
+        this.activateView();
+      });
+    }
   }
 
   onunload(): void {
     console.log('Unloading Learning Path Generator plugin');
     this.app.workspace.detachLeavesOfType(VIEW_TYPE_LEARNING_PATH);
+  }
+
+  /**
+   * 설정 로드
+   */
+  async loadSettings(): Promise<void> {
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+  }
+
+  /**
+   * 설정 저장
+   */
+  async saveSettings(): Promise<void> {
+    await this.saveData(this.settings);
+    // Reinitialize repositories with new settings
+    this.reinitializeRepositories();
+  }
+
+  /**
+   * 설정 변경 시 리포지토리 재초기화
+   */
+  private reinitializeRepositories(): void {
+    this.pathRepository = new PathRepository(this.app, {
+      storagePath: this.settings.storagePath,
+    });
+    this.progressRepository = new ProgressRepository(this.app, {
+      masteryLevelKey: this.settings.masteryLevelKey,
+      lastStudiedKey: this.settings.lastStudiedKey,
+      studyCountKey: this.settings.studyCountKey,
+    });
+
+    // Update use cases with new repositories
+    this.generatePathUseCase = new GenerateLearningPathUseCase(
+      this.noteRepository,
+      this.pathRepository,
+      this.dependencyAnalyzer
+    );
+    this.updateProgressUseCase = new UpdateProgressUseCase(
+      this.pathRepository,
+      this.progressRepository
+    );
   }
 
   /**
@@ -138,6 +202,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
     const response = await this.generatePathUseCase.execute({
       name: `${goalNoteId}까지의 학습 경로`,
       goalNoteId,
+      excludeFolders: this.settings.excludeFolders,
     });
 
     if (response.success && response.path) {
