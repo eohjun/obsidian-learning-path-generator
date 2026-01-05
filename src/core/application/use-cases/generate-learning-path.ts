@@ -352,7 +352,8 @@ export class GenerateLearningPathUseCase {
 
       const links = note.metadata.links ?? [];
       for (const link of links) {
-        if (targetSet.has(link)) {
+        // Skip self-referencing links
+        if (targetSet.has(link) && link !== note.id) {
           // A -> B link means A is prerequisite for B
           // "After learning A, proceed to B"
           dependencies.push(
