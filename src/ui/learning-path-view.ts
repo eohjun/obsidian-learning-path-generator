@@ -3,7 +3,7 @@
  * 학습 경로를 표시하는 사이드바 뷰
  */
 
-import { ItemView, WorkspaceLeaf, setIcon } from 'obsidian';
+import { ItemView, WorkspaceLeaf, setIcon, Notice } from 'obsidian';
 import {
   LearningPath,
   LearningNode,
@@ -464,12 +464,16 @@ export class LearningPathView extends ItemView {
     nodeId: string,
     newLevel: MasteryLevelValue
   ): Promise<void> {
+    console.log('[LearningPathView] updateNodeProgress called:', { pathId, nodeId, newLevel });
+
     if (!this.dependencies) {
+      new Notice('오류: Dependencies not set');
       console.error('Dependencies not set');
       return;
     }
 
     if (!this.currentPath) {
+      new Notice('오류: 현재 경로가 없습니다');
       console.error('No current path');
       return;
     }
@@ -480,15 +484,25 @@ export class LearningPathView extends ItemView {
       newLevel,
     };
 
-    const response = await this.dependencies.updateProgressUseCase.execute(request);
+    try {
+      console.log('[LearningPathView] Executing updateProgressUseCase...');
+      const response = await this.dependencies.updateProgressUseCase.execute(request);
+      console.log('[LearningPathView] Response:', response);
 
-    if (response.success) {
-      // Update local currentPath with new progress
-      const masteryLevel = this.valueToMasteryLevel(newLevel);
-      this.currentPath = this.currentPath.updateNodeProgress(nodeId, masteryLevel);
-      await this.refresh();
-    } else {
-      console.error('Failed to update progress:', response.error);
+      if (response.success) {
+        // Update local currentPath with new progress
+        const masteryLevel = this.valueToMasteryLevel(newLevel);
+        this.currentPath = this.currentPath.updateNodeProgress(nodeId, masteryLevel);
+        await this.refresh();
+        new Notice('학습 상태가 업데이트되었습니다');
+      } else {
+        new Notice(`진행 상태 업데이트 실패: ${response.error}`);
+        console.error('Failed to update progress:', response.error);
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : '알 수 없는 오류';
+      new Notice(`오류 발생: ${errorMsg}`);
+      console.error('Exception in updateNodeProgress:', error);
     }
   }
 
