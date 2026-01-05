@@ -336,7 +336,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   }
 
   /**
-   * 현재 노트를 목표로 학습 경로 생성
+   * 현재 노트를 목표로 학습 경로 생성 또는 기존 경로 로드
    */
   async generatePathFromCurrentNote(): Promise<void> {
     const activeFile = this.app.workspace.getActiveFile();
@@ -346,9 +346,27 @@ export default class LearningPathGeneratorPlugin extends Plugin {
     }
 
     const goalNoteId = activeFile.basename;
-    new Notice(`'${goalNoteId}' 학습 경로 생성 중...`);
 
     try {
+      // Check if existing path exists for this goal note
+      const existingPath = await this.pathRepository.findByGoalNote(goalNoteId);
+
+      if (existingPath) {
+        // Load existing path
+        new Notice(`기존 학습 경로를 불러왔습니다: ${goalNoteId}`);
+        await this.activateView();
+
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_LEARNING_PATH);
+        if (leaves.length > 0) {
+          const view = leaves[0].view as LearningPathView;
+          await view.displayPath(existingPath);
+        }
+        return;
+      }
+
+      // No existing path, generate new one
+      new Notice(`'${goalNoteId}' 학습 경로 생성 중...`);
+
       const response = await this.generatePathUseCase.execute({
         name: `${goalNoteId}까지의 학습 경로`,
         goalNoteId,

@@ -161,6 +161,22 @@ export class LearningPathView extends ItemView {
     });
     setIcon(deleteBtn, 'trash-2');
     deleteBtn.addEventListener('click', () => this.deletePath(path));
+
+    // Close button (hide without deleting)
+    const closeBtn = actionsEl.createEl('button', {
+      cls: 'learning-path-menu-btn clickable-icon',
+      attr: { 'aria-label': '닫기 (삭제하지 않음)' },
+    });
+    setIcon(closeBtn, 'x');
+    closeBtn.addEventListener('click', () => this.closePath());
+  }
+
+  /**
+   * 경로 닫기 (삭제하지 않고 뷰만 비움)
+   */
+  private async closePath(): Promise<void> {
+    this.currentPath = null;
+    await this.refresh();
   }
 
   /**
