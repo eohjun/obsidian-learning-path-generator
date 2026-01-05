@@ -106,6 +106,22 @@ export class OpenAIProvider extends BaseProvider {
 
   async testApiKey(apiKey: string): Promise<boolean> {
     try {
+      const model = this.model || AI_PROVIDERS.openai.defaultModel;
+      const isReasoningModel =
+        model.startsWith('o1') || model.startsWith('o3') || model.startsWith('gpt-5');
+
+      const requestBody: Record<string, unknown> = {
+        model,
+        messages: [{ role: 'user', content: 'Hello' }],
+      };
+
+      // GPT-5.x and o-series models use max_completion_tokens instead of max_tokens
+      if (isReasoningModel) {
+        requestBody.max_completion_tokens = 10;
+      } else {
+        requestBody.max_tokens = 10;
+      }
+
       const response = await this.makeRequest<OpenAIResponse>({
         url: `${AI_PROVIDERS.openai.endpoint}/chat/completions`,
         method: 'POST',
@@ -113,11 +129,7 @@ export class OpenAIProvider extends BaseProvider {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          model: this.model || AI_PROVIDERS.openai.defaultModel,
-          max_tokens: 10,
-          messages: [{ role: 'user', content: 'Hello' }],
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       return !response.error && response.choices?.length > 0;
