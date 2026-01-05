@@ -4,7 +4,7 @@
  * Generate learning paths and curriculum from your vault notes with AI.
  */
 
-import { Plugin, WorkspaceLeaf } from 'obsidian';
+import { Plugin, WorkspaceLeaf, Notice } from 'obsidian';
 import { DependencyAnalyzer } from './core/domain';
 import {
   GenerateLearningPathUseCase,
@@ -194,31 +194,48 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   async generatePathFromCurrentNote(): Promise<void> {
     const activeFile = this.app.workspace.getActiveFile();
     if (!activeFile) {
+      new Notice('활성화된 노트가 없습니다.');
       return;
     }
 
     const goalNoteId = activeFile.basename;
+    new Notice(`'${goalNoteId}' 학습 경로 생성 중...`);
 
-    const response = await this.generatePathUseCase.execute({
-      name: `${goalNoteId}까지의 학습 경로`,
-      goalNoteId,
-      excludeFolders: this.settings.excludeFolders,
-    });
+    try {
+      const response = await this.generatePathUseCase.execute({
+        name: `${goalNoteId}까지의 학습 경로`,
+        goalNoteId,
+        excludeFolders: this.settings.excludeFolders,
+      });
 
-    if (response.success && response.path) {
-      // Activate view and display path
-      await this.activateView();
+      if (response.success && response.path) {
+        const nodeCount = response.nodes?.length ?? 0;
+        new Notice(`학습 경로 생성 완료! ${nodeCount}개 노드`);
 
-      const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_LEARNING_PATH);
-      if (leaves.length > 0) {
-        const view = leaves[0].view as LearningPathView;
-        const path = await this.pathRepository.findById(response.path.id);
-        if (path) {
-          await view.displayPath(path);
+        // Show warnings if any
+        if (response.warnings && response.warnings.length > 0) {
+          new Notice(`경고: ${response.warnings.join(', ')}`, 5000);
         }
+
+        // Activate view and display path
+        await this.activateView();
+
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_LEARNING_PATH);
+        if (leaves.length > 0) {
+          const view = leaves[0].view as LearningPathView;
+          const path = await this.pathRepository.findById(response.path.id);
+          if (path) {
+            await view.displayPath(path);
+          }
+        }
+      } else {
+        new Notice(`학습 경로 생성 실패: ${response.error}`, 5000);
+        console.error('Failed to generate path:', response.error);
       }
-    } else {
-      console.error('Failed to generate path:', response.error);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '알 수 없는 오류';
+      new Notice(`오류 발생: ${message}`, 5000);
+      console.error('Error generating path:', error);
     }
   }
 }
