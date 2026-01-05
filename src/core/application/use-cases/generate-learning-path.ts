@@ -317,6 +317,8 @@ export class GenerateLearningPathUseCase {
       { id: goalId, depth: 0 },
     ];
 
+    console.log(`[findPathToGoal] Starting BFS for goal: ${goalId}, maxNodes: ${maxNodes}, maxDepth: ${maxDepth}`);
+
     while (queue.length > 0) {
       const { id: current, depth } = queue.shift()!;
 
@@ -324,7 +326,10 @@ export class GenerateLearningPathUseCase {
       prerequisites.add(current);
 
       // Stop if max nodes reached
-      if (prerequisites.size >= maxNodes) break;
+      if (prerequisites.size >= maxNodes) {
+        console.log(`[findPathToGoal] Max nodes (${maxNodes}) reached, stopping`);
+        break;
+      }
 
       // Stop if max depth reached
       if (depth >= maxDepth) continue;
@@ -343,6 +348,7 @@ export class GenerateLearningPathUseCase {
       }
     }
 
+    console.log(`[findPathToGoal] Result: ${prerequisites.size} nodes found`);
     return Array.from(prerequisites);
   }
 
