@@ -21,39 +21,55 @@ export class PathRepository implements IPathRepository {
     config?: Partial<PathRepositoryConfig>
   ) {
     this.config = {
-      storagePath: config?.storagePath ?? '.learning-paths',
+      // Use underscore prefix instead of dot (hidden folders may not work well)
+      storagePath: config?.storagePath ?? '_learning-paths',
     };
   }
 
   async save(path: LearningPath): Promise<void> {
+    console.log('[PathRepository] save() called with path id:', path.id);
+
     await this.ensureStorageFolder();
 
     const filePath = this.getFilePath(path.id);
     const data = path.toData();
     const content = JSON.stringify(data, null, 2);
 
-    const existingFile = this.app.vault.getAbstractFileByPath(filePath);
-    if (existingFile && existingFile instanceof TFile) {
-      await this.app.vault.modify(existingFile, content);
-    } else {
-      await this.app.vault.create(filePath, content);
+    console.log('[PathRepository] Saving to:', filePath);
+
+    try {
+      const existingFile = this.app.vault.getAbstractFileByPath(filePath);
+      if (existingFile && existingFile instanceof TFile) {
+        await this.app.vault.modify(existingFile, content);
+        console.log('[PathRepository] Modified existing file');
+      } else {
+        await this.app.vault.create(filePath, content);
+        console.log('[PathRepository] Created new file');
+      }
+    } catch (error) {
+      console.error('[PathRepository] Save failed:', error);
+      throw error;
     }
   }
 
   async findById(id: string): Promise<LearningPath | null> {
     const filePath = this.getFilePath(id);
+    console.log('[PathRepository] findById() looking for:', filePath);
+
     const file = this.app.vault.getAbstractFileByPath(filePath);
 
     if (!file || !(file instanceof TFile)) {
+      console.log('[PathRepository] File not found:', filePath);
       return null;
     }
 
     try {
       const content = await this.app.vault.read(file);
       const data = JSON.parse(content) as LearningPathData;
+      console.log('[PathRepository] Successfully loaded path');
       return LearningPath.fromData(data);
     } catch (error) {
-      console.error(`Error reading path file ${filePath}:`, error);
+      console.error(`[PathRepository] Error reading path file ${filePath}:`, error);
       return null;
     }
   }
