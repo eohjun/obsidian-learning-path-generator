@@ -347,9 +347,93 @@ export class LearningPathView extends ItemView {
   /**
    * 경로 생성 다이얼로그
    */
-  private showCreateDialog(): void {
-    // Will be implemented with modal
-    console.log('Show create path dialog');
+  private async showCreateDialog(): Promise<void> {
+    if (!this.dependencies) {
+      console.error('Dependencies not set');
+      return;
+    }
+
+    // Get active file as goal note
+    const activeFile = this.app.workspace.getActiveFile();
+    const goalNoteId = activeFile?.path;
+    const goalNoteName = activeFile?.basename || '새 학습 경로';
+
+    // Show loading state
+    const container = this.containerEl.children[1];
+    container.empty();
+    container.addClass('learning-path-view');
+    this.renderLoadingState(container, goalNoteName);
+
+    try {
+      // Build request
+      const request: GeneratePathRequest = {
+        name: goalNoteName,
+        goalNoteId,
+        useLLMAnalysis: true,
+      };
+
+      // Execute path generation
+      const response = await this.dependencies.generatePathUseCase.execute(request);
+
+      if (response.success && response.path) {
+        // Convert path data to domain object and display
+        const path = LearningPath.fromData(response.path);
+        await this.displayPath(path);
+
+        // Show warnings if any
+        if (response.warnings && response.warnings.length > 0) {
+          console.warn('학습 경로 생성 경고:', response.warnings);
+        }
+      } else {
+        this.renderErrorState(container, response.error || '학습 경로 생성에 실패했습니다.');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+      this.renderErrorState(container, errorMessage);
+    }
+  }
+
+  /**
+   * 로딩 상태 렌더링
+   */
+  private renderLoadingState(container: Element, pathName: string): void {
+    const loadingEl = container.createDiv({ cls: 'learning-path-loading' });
+
+    const spinnerEl = loadingEl.createDiv({ cls: 'learning-path-spinner' });
+    setIcon(spinnerEl, 'loader-2');
+
+    loadingEl.createEl('h3', { text: '새 학습 경로를 생성 중입니다...' });
+    loadingEl.createEl('p', { text: `목표: ${pathName}` });
+    loadingEl.createEl('p', {
+      cls: 'learning-path-loading-hint',
+      text: 'LLM 분석 중... 잠시만 기다려 주세요.',
+    });
+  }
+
+  /**
+   * 에러 상태 렌더링
+   */
+  private renderErrorState(container: Element, errorMessage: string): void {
+    container.empty();
+
+    const errorEl = container.createDiv({ cls: 'learning-path-error' });
+
+    const iconEl = errorEl.createDiv({ cls: 'learning-path-error-icon' });
+    setIcon(iconEl, 'alert-circle');
+
+    errorEl.createEl('h3', { text: '학습 경로 생성 실패' });
+    errorEl.createEl('p', { text: errorMessage });
+
+    const retryBtn = errorEl.createEl('button', {
+      cls: 'mod-cta',
+      text: '다시 시도',
+    });
+    retryBtn.addEventListener('click', () => this.showCreateDialog());
+
+    const backBtn = errorEl.createEl('button', {
+      text: '돌아가기',
+    });
+    backBtn.addEventListener('click', () => this.renderEmptyState(container));
   }
 
   /**
