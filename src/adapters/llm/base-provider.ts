@@ -235,15 +235,18 @@ JSON 배열로 학습 순서 답변:
       .map((n) => `### ${n.title}\n${n.content.slice(0, 1500)}`)
       .join('\n\n');
 
+    const noteTitles = relatedNotes.map((n) => n.title).join(', ');
+
     return `당신은 학습 경로를 설계하는 교육 전문가입니다.
 
 ## 목표
-"${goalNote.title}" 노트를 완전히 이해하기 위한 최적의 학습 순서를 제안해주세요.
+"${goalNote.title}" 노트를 완전히 이해하기 위한 최적의 학습 순서를 제안하고,
+**이 주제를 깊이 이해하는 데 필요하지만 현재 볼트에 없는 지식 갭을 식별**해주세요.
 
 ## 목표 노트 내용
 ${goalNote.content.slice(0, 2000)}
 
-## 관련 노트들
+## 관련 노트들 (현재 볼트에 있는 노트)
 ${notesContext}
 
 ## 분석 요청
@@ -258,16 +261,36 @@ ${notesContext}
   "estimatedMinutes": {
     "노트제목": 예상학습시간(분)
   },
-  "knowledgeGaps": ["볼트에 없지만 필요한 개념들"]
+  "knowledgeGaps": [
+    {
+      "concept": "누락된 개념/주제명",
+      "reason": "왜 이 개념이 필요한지",
+      "priority": "high|medium|low",
+      "suggestedResources": ["학습 추천 자료 (책, 강의, 키워드 등)"]
+    }
+  ]
 }
 \`\`\`
 
-규칙:
-1. 학습 순서는 기초 개념부터 심화 개념 순으로
+## 중요 규칙
+
+### 학습 순서 (learningOrder)
+1. 기초 개념부터 심화 개념 순으로 정렬
 2. 목표 노트("${goalNote.title}")는 반드시 마지막에 위치
 3. 관련 노트 중 목표 달성에 불필요한 노트는 제외 가능
 4. 예상 학습 시간은 노트 복잡도에 따라 5-60분 범위
-5. 지식 갭은 이해에 필요하지만 볼트에 없는 개념`;
+
+### 지식 갭 분석 (knowledgeGaps) - 매우 중요!
+1. **목표 노트의 내용을 깊이 이해하는 데 필수적이지만, 현재 볼트에 없는 개념을 식별**
+2. 현재 볼트에 있는 노트 목록: ${noteTitles}
+3. 지식 갭 예시:
+   - 목표 노트가 "양자역학의 측정 문제"인데 볼트에 "확률론적 해석" 노트가 없다면 → 갭
+   - 목표 노트가 "인공지능 윤리"인데 볼트에 "트롤리 딜레마" 노트가 없다면 → 갭
+4. priority 기준:
+   - high: 이 개념 없이는 목표 노트 이해가 어려움
+   - medium: 이해에 도움이 되지만 필수는 아님
+   - low: 심화 학습을 위해 알면 좋은 개념
+5. suggestedResources: 검색 키워드, 관련 도서, 온라인 강의 등 구체적 학습 자료 제안`;
   }
 
   // ============================================
@@ -351,11 +374,31 @@ ${notesContext}
           validOrder.push(goalTitle);
         }
 
+        // Parse knowledge gaps - handle both old string[] and new object[] formats
+        const rawGaps = parsed.knowledgeGaps || [];
+        const knowledgeGaps = rawGaps.map((gap: any) => {
+          if (typeof gap === 'string') {
+            // Old format compatibility
+            return {
+              concept: gap,
+              reason: '',
+              priority: 'medium' as const,
+              suggestedResources: [],
+            };
+          }
+          return {
+            concept: gap.concept || '',
+            reason: gap.reason || '',
+            priority: (gap.priority as 'high' | 'medium' | 'low') || 'medium',
+            suggestedResources: gap.suggestedResources || [],
+          };
+        });
+
         return {
           learningOrder: validOrder,
           dependencies: parsed.dependencies || [],
           estimatedMinutes: parsed.estimatedMinutes || {},
-          knowledgeGaps: parsed.knowledgeGaps || [],
+          knowledgeGaps,
         };
       }
     } catch (e) {

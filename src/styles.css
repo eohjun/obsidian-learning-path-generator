@@ -396,3 +396,166 @@
 .learning-path-error button {
   margin: 0 8px;
 }
+
+/* ========================================
+   Knowledge Gaps Section
+   ======================================== */
+
+.learning-path-gaps {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: var(--background-secondary);
+  border-radius: 8px;
+  border-left: 3px solid var(--color-yellow);
+}
+
+.learning-path-gaps-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.learning-path-gaps-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--color-yellow);
+}
+
+.learning-path-gaps-icon {
+  display: flex;
+  align-items: center;
+}
+
+.learning-path-gaps-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.learning-path-gaps-stats {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.learning-path-gaps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.learning-path-gap-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px;
+  background: var(--background-primary);
+  border-radius: 6px;
+  border-left: 3px solid var(--background-modifier-border);
+}
+
+.learning-path-gap-item.priority-high {
+  border-left-color: var(--color-red);
+}
+
+.learning-path-gap-item.priority-medium {
+  border-left-color: var(--color-yellow);
+}
+
+.learning-path-gap-item.priority-low {
+  border-left-color: var(--text-muted);
+}
+
+.learning-path-gap-badge {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.learning-path-gap-item.priority-high .learning-path-gap-badge {
+  background: var(--color-red);
+  color: white;
+}
+
+.learning-path-gap-item.priority-medium .learning-path-gap-badge {
+  background: var(--color-yellow);
+  color: var(--text-normal);
+}
+
+.learning-path-gap-item.priority-low .learning-path-gap-badge {
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+}
+
+.learning-path-gap-content {
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.learning-path-gap-concept {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 14px;
+  color: var(--text-normal);
+}
+
+.learning-path-gap-reason {
+  margin: 0 0 6px 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.learning-path-gap-resources {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.learning-path-gap-resources-label {
+  font-weight: 500;
+}
+
+.learning-path-gap-resources-list {
+  font-style: italic;
+}
+
+.learning-path-gap-action {
+  flex-shrink: 0;
+}
+
+.learning-path-gap-search-btn {
+  padding: 4px;
+  border-radius: 4px;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.learning-path-gap-search-btn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.learning-path-gap-search-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.learning-path-gaps-help {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.learning-path-gaps-help-text {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}

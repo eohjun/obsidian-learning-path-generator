@@ -11,6 +11,7 @@ import {
   MasteryLevelValue,
   PathStatistics,
   IPathRepository,
+  KnowledgeGapItem,
 } from '../core/domain';
 import {
   GenerateLearningPathUseCase,
@@ -123,6 +124,12 @@ export class LearningPathView extends ItemView {
     // Progress Bar
     const progressEl = container.createDiv({ cls: 'learning-path-progress' });
     this.renderProgressBar(progressEl, path.getStatistics());
+
+    // Knowledge Gaps (if any)
+    if (path.knowledgeGaps && path.knowledgeGaps.length > 0) {
+      const gapsEl = container.createDiv({ cls: 'learning-path-gaps' });
+      this.renderKnowledgeGaps(gapsEl, path.knowledgeGaps as KnowledgeGapItem[], path.totalAnalyzedNotes);
+    }
 
     // Node List
     const nodesEl = container.createDiv({ cls: 'learning-path-nodes' });
@@ -297,6 +304,96 @@ export class LearningPathView extends ItemView {
     if (percent === 100) {
       barFill.addClass('complete');
     }
+  }
+
+  /**
+   * 지식 갭 섹션 렌더링
+   */
+  private renderKnowledgeGaps(
+    container: Element,
+    gaps: KnowledgeGapItem[],
+    totalAnalyzedNotes: number
+  ): void {
+    // Header
+    const headerEl = container.createDiv({ cls: 'learning-path-gaps-header' });
+    const titleEl = headerEl.createDiv({ cls: 'learning-path-gaps-title' });
+
+    const iconEl = titleEl.createSpan({ cls: 'learning-path-gaps-icon' });
+    setIcon(iconEl, 'alert-triangle');
+    titleEl.createSpan({ text: '지식 갭 발견' });
+
+    // Stats
+    const statsEl = headerEl.createDiv({ cls: 'learning-path-gaps-stats' });
+    statsEl.createSpan({
+      text: `${totalAnalyzedNotes}개 노트 분석 → ${gaps.length}개 갭 발견`,
+      cls: 'learning-path-gaps-count'
+    });
+
+    // Gap List
+    const listEl = container.createDiv({ cls: 'learning-path-gaps-list' });
+
+    // Sort by priority (high first)
+    const sortedGaps = [...gaps].sort((a, b) => {
+      const priorityOrder = { high: 0, medium: 1, low: 2 };
+      return priorityOrder[a.priority] - priorityOrder[b.priority];
+    });
+
+    for (const gap of sortedGaps) {
+      const gapEl = listEl.createDiv({
+        cls: `learning-path-gap-item priority-${gap.priority}`
+      });
+
+      // Priority badge
+      const badgeEl = gapEl.createSpan({ cls: 'learning-path-gap-badge' });
+      const priorityText = gap.priority === 'high' ? '필수' : gap.priority === 'medium' ? '권장' : '선택';
+      badgeEl.setText(priorityText);
+
+      // Content
+      const contentEl = gapEl.createDiv({ cls: 'learning-path-gap-content' });
+
+      // Concept name
+      contentEl.createEl('strong', {
+        text: gap.concept,
+        cls: 'learning-path-gap-concept'
+      });
+
+      // Reason
+      if (gap.reason) {
+        contentEl.createEl('p', {
+          text: gap.reason,
+          cls: 'learning-path-gap-reason'
+        });
+      }
+
+      // Resources
+      if (gap.suggestedResources && gap.suggestedResources.length > 0) {
+        const resourcesEl = contentEl.createDiv({ cls: 'learning-path-gap-resources' });
+        resourcesEl.createSpan({ text: '학습 자료: ', cls: 'learning-path-gap-resources-label' });
+        resourcesEl.createSpan({
+          text: gap.suggestedResources.join(', '),
+          cls: 'learning-path-gap-resources-list'
+        });
+      }
+
+      // Action button - search in vault
+      const actionEl = gapEl.createDiv({ cls: 'learning-path-gap-action' });
+      const searchBtn = actionEl.createEl('button', {
+        cls: 'learning-path-gap-search-btn clickable-icon',
+        attr: { 'aria-label': `"${gap.concept}" 검색` }
+      });
+      setIcon(searchBtn, 'search');
+      searchBtn.addEventListener('click', () => {
+        // Open search with the concept as query
+        (this.app as any).internalPlugins?.plugins?.['global-search']?.instance?.openGlobalSearch(gap.concept);
+      });
+    }
+
+    // Help text
+    const helpEl = container.createDiv({ cls: 'learning-path-gaps-help' });
+    helpEl.createEl('p', {
+      text: '💡 이 주제들에 대한 노트를 추가하면 학습이 더 완전해집니다.',
+      cls: 'learning-path-gaps-help-text'
+    });
   }
 
   /**

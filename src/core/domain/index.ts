@@ -35,6 +35,7 @@ export {
   type DependencyAnalysisResult,
   type KnowledgeGapAnalysisResult,
   type LearningPathAnalysisResult,
+  type KnowledgeGapItem,
 } from './interfaces';
 
 // Constants

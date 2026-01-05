@@ -20,4 +20,5 @@ export {
   type DependencyAnalysisResult,
   type KnowledgeGapAnalysisResult,
   type LearningPathAnalysisResult,
+  type KnowledgeGapItem,
 } from './llm-provider.interface';

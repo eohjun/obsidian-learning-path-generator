@@ -55,11 +55,18 @@ export interface KnowledgeGapAnalysisResult {
   summary: string;
 }
 
+export interface KnowledgeGapItem {
+  concept: string;
+  reason: string;
+  priority: 'high' | 'medium' | 'low';
+  suggestedResources: string[];
+}
+
 export interface LearningPathAnalysisResult {
   learningOrder: string[];
   dependencies: Array<{ from: string; to: string; reason: string }>;
   estimatedMinutes: Record<string, number>;
-  knowledgeGaps: string[];
+  knowledgeGaps: KnowledgeGapItem[];
 }
 
 // ============================================

@@ -3,7 +3,7 @@
  * 학습 경로 생성 요청/응답 데이터 전송 객체
  */
 
-import { LearningPathData, LearningNodeData } from '../../domain';
+import { LearningPathData, LearningNodeData, KnowledgeGapItem } from '../../domain';
 
 export interface GeneratePathRequest {
   /**
@@ -75,4 +75,14 @@ export interface GeneratePathResponse {
    * 경고 메시지들 (순환 의존성 등)
    */
   warnings?: string[];
+
+  /**
+   * 지식 갭 - 목표 이해에 필요하지만 볼트에 없는 개념들
+   */
+  knowledgeGaps?: KnowledgeGapItem[];
+
+  /**
+   * 전체 관련 노트 수 (분석 범위)
+   */
+  totalAnalyzedNotes?: number;
 }

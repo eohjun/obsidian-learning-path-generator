@@ -8,12 +8,15 @@
 import { LearningNode, LearningNodeData } from './learning-node';
 import { PathStatistics } from '../value-objects/path-statistics';
 import { MasteryLevel } from '../value-objects/mastery-level';
+import { KnowledgeGapItem } from '../interfaces';
 
 export interface LearningPathData {
   id: string;
   goalNoteId: string;
   goalNoteTitle: string;
   nodes: LearningNodeData[];
+  knowledgeGaps?: KnowledgeGapItem[];
+  totalAnalyzedNotes?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -24,6 +27,8 @@ export class LearningPath {
     private readonly _goalNoteId: string,
     private readonly _goalNoteTitle: string,
     private _nodes: LearningNode[],
+    private readonly _knowledgeGaps: KnowledgeGapItem[],
+    private readonly _totalAnalyzedNotes: number,
     private readonly _createdAt: Date,
     private _updatedAt: Date
   ) {}
@@ -53,12 +58,22 @@ export class LearningPath {
     return this._updatedAt;
   }
 
+  get knowledgeGaps(): ReadonlyArray<KnowledgeGapItem> {
+    return this._knowledgeGaps;
+  }
+
+  get totalAnalyzedNotes(): number {
+    return this._totalAnalyzedNotes;
+  }
+
   // Factory methods
   static create(params: {
     id: string;
     goalNoteId: string;
     goalNoteTitle: string;
     nodes?: LearningNode[];
+    knowledgeGaps?: KnowledgeGapItem[];
+    totalAnalyzedNotes?: number;
   }): LearningPath {
     if (!params.id || !params.goalNoteId) {
       throw new Error('ID and goal note ID are required');
@@ -70,6 +85,8 @@ export class LearningPath {
       params.goalNoteId,
       params.goalNoteTitle || params.goalNoteId,
       params.nodes ?? [],
+      params.knowledgeGaps ?? [],
+      params.totalAnalyzedNotes ?? 0,
       now,
       now
     );
@@ -83,6 +100,8 @@ export class LearningPath {
       data.goalNoteId,
       data.goalNoteTitle,
       nodes,
+      data.knowledgeGaps ?? [],
+      data.totalAnalyzedNotes ?? 0,
       new Date(data.createdAt),
       new Date(data.updatedAt)
     );
@@ -114,6 +133,8 @@ export class LearningPath {
       this._goalNoteId,
       this._goalNoteTitle,
       newNodes,
+      this._knowledgeGaps,
+      this._totalAnalyzedNotes,
       this._createdAt,
       new Date()
     );
@@ -129,6 +150,8 @@ export class LearningPath {
       this._goalNoteId,
       this._goalNoteTitle,
       newNodes,
+      this._knowledgeGaps,
+      this._totalAnalyzedNotes,
       this._createdAt,
       new Date()
     );
@@ -142,6 +165,8 @@ export class LearningPath {
       this._goalNoteId,
       this._goalNoteTitle,
       orderedNodes,
+      this._knowledgeGaps,
+      this._totalAnalyzedNotes,
       this._createdAt,
       new Date()
     );
@@ -167,6 +192,8 @@ export class LearningPath {
       this._goalNoteId,
       this._goalNoteTitle,
       newNodes,
+      this._knowledgeGaps,
+      this._totalAnalyzedNotes,
       this._createdAt,
       new Date()
     );
@@ -192,6 +219,8 @@ export class LearningPath {
       this._goalNoteId,
       this._goalNoteTitle,
       newNodes,
+      this._knowledgeGaps,
+      this._totalAnalyzedNotes,
       this._createdAt,
       new Date()
     );
@@ -305,6 +334,8 @@ export class LearningPath {
       goalNoteId: this._goalNoteId,
       goalNoteTitle: this._goalNoteTitle,
       nodes: this._nodes.map((n) => n.toData()),
+      knowledgeGaps: this._knowledgeGaps.length > 0 ? [...this._knowledgeGaps] : undefined,
+      totalAnalyzedNotes: this._totalAnalyzedNotes > 0 ? this._totalAnalyzedNotes : undefined,
       createdAt: this._createdAt.toISOString(),
       updatedAt: this._updatedAt.toISOString(),
     };

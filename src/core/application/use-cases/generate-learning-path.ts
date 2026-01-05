@@ -15,6 +15,7 @@ import {
   LearningPath,
   LearningNode,
   MasteryLevel,
+  KnowledgeGapItem,
 } from '../../domain';
 import {
   GeneratePathRequest,
@@ -86,7 +87,8 @@ export class GenerateLearningPathUseCase {
       let sortedNodeIds: string[];
       let levels: string[][] = [];
       let estimatedMinutes: Record<string, number> = {};
-      let knowledgeGaps: string[] = [];
+      let knowledgeGaps: KnowledgeGapItem[] = [];
+      const totalAnalyzedNotes = targetNotes.length;
 
       const useLLM = request.useLLMAnalysis !== false && this.aiService;
 
@@ -99,10 +101,6 @@ export class GenerateLearningPathUseCase {
           estimatedMinutes = llmResult.estimatedMinutes;
           knowledgeGaps = llmResult.knowledgeGaps;
           levels = [sortedNodeIds]; // Simple single level for now
-
-          if (knowledgeGaps.length > 0) {
-            warnings.push(`지식 갭 발견: ${knowledgeGaps.join(', ')}`);
-          }
         } else {
           warnings.push(`LLM 분석 실패, 링크 기반 분석으로 전환: ${llmResult.error}`);
           const linkResult = this.analyzeWithLinks(targetNoteIds, notes);
@@ -144,12 +142,14 @@ export class GenerateLearningPathUseCase {
       // 7. Determine goal note title
       const goalNoteTitle = request.name || goalNote?.basename || goalNoteId;
 
-      // 8. Create LearningPath with nodes
+      // 8. Create LearningPath with nodes and knowledge gaps
       const path = LearningPath.create({
         id: this.generateId(),
         goalNoteId,
         goalNoteTitle,
         nodes: learningNodes,
+        knowledgeGaps,
+        totalAnalyzedNotes,
       });
 
       // 9. Save path to repository
@@ -161,6 +161,8 @@ export class GenerateLearningPathUseCase {
         nodes: learningNodes.map((n) => n.toData()),
         levels,
         warnings: warnings.length > 0 ? warnings : undefined,
+        knowledgeGaps: knowledgeGaps.length > 0 ? knowledgeGaps : undefined,
+        totalAnalyzedNotes,
       };
     } catch (error) {
       return {
@@ -181,7 +183,7 @@ export class GenerateLearningPathUseCase {
     success: boolean;
     learningOrder: string[];
     estimatedMinutes: Record<string, number>;
-    knowledgeGaps: string[];
+    knowledgeGaps: KnowledgeGapItem[];
     error?: string;
   }> {
     if (!this.aiService || !this.aiService.isAvailable()) {
@@ -294,14 +296,12 @@ export class GenerateLearningPathUseCase {
    * A → B 링크 = "A가 B를 참조" = "A를 이해하려면 B를 먼저 알아야 함"
    * 따라서 forward links를 따라가며 선수 지식을 찾음
    *
-   * @param maxDepth - 최대 탐색 깊이 (기본값: 3)
-   * @param maxNodes - 최대 노드 수 (기본값: 30)
+   * @param maxDepth - 최대 탐색 깊이 (기본값: 5, 지식 Gap 분석을 위해 넓게 탐색)
    */
   private findPathToGoal(
     notes: NoteData[],
     goalId: string,
-    maxDepth: number = 3,
-    maxNodes: number = 30
+    maxDepth: number = 5
   ): string[] {
     const noteMap = new Map(notes.map((n) => [n.id, n]));
     const goalNote = noteMap.get(goalId);
@@ -322,9 +322,6 @@ export class GenerateLearningPathUseCase {
 
       if (prerequisites.has(current) && current !== goalId) continue;
       prerequisites.add(current);
-
-      // Stop if max nodes reached
-      if (prerequisites.size >= maxNodes) break;
 
       // Stop if max depth reached
       if (depth >= maxDepth) continue;
