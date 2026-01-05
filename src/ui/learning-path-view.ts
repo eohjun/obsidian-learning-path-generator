@@ -126,11 +126,9 @@ export class LearningPathView extends ItemView {
     const progressEl = container.createDiv({ cls: 'learning-path-progress' });
     this.renderProgressBar(progressEl, path.getStatistics());
 
-    // Knowledge Gaps (if any)
-    if (path.knowledgeGaps && path.knowledgeGaps.length > 0) {
-      const gapsEl = container.createDiv({ cls: 'learning-path-gaps' });
-      this.renderKnowledgeGaps(gapsEl, path.knowledgeGaps as KnowledgeGapItem[], path.totalAnalyzedNotes);
-    }
+    // Knowledge Gaps (always show section)
+    const gapsEl = container.createDiv({ cls: 'learning-path-gaps' });
+    this.renderKnowledgeGaps(gapsEl, (path.knowledgeGaps ?? []) as KnowledgeGapItem[], path.totalAnalyzedNotes);
 
     // Node List
     const nodesEl = container.createDiv({ cls: 'learning-path-nodes' });
@@ -320,15 +318,31 @@ export class LearningPathView extends ItemView {
     const titleEl = headerEl.createDiv({ cls: 'learning-path-gaps-title' });
 
     const iconEl = titleEl.createSpan({ cls: 'learning-path-gaps-icon' });
-    setIcon(iconEl, 'alert-triangle');
-    titleEl.createSpan({ text: '지식 갭 발견' });
+    setIcon(iconEl, gaps.length > 0 ? 'alert-triangle' : 'check-circle');
+    titleEl.createSpan({ text: gaps.length > 0 ? '지식 갭 발견' : '지식 갭 분석' });
 
     // Stats
     const statsEl = headerEl.createDiv({ cls: 'learning-path-gaps-stats' });
-    statsEl.createSpan({
-      text: `${totalAnalyzedNotes}개 노트 분석 → ${gaps.length}개 갭 발견`,
-      cls: 'learning-path-gaps-count'
-    });
+    if (totalAnalyzedNotes > 0) {
+      statsEl.createSpan({
+        text: gaps.length > 0
+          ? `${totalAnalyzedNotes}개 노트 분석 → ${gaps.length}개 갭 발견`
+          : `${totalAnalyzedNotes}개 노트 분석 완료`,
+        cls: 'learning-path-gaps-count'
+      });
+    }
+
+    // Empty state
+    if (gaps.length === 0) {
+      const emptyEl = container.createDiv({ cls: 'learning-path-gaps-empty' });
+      emptyEl.createEl('p', {
+        text: totalAnalyzedNotes > 0
+          ? '✅ 발견된 지식 갭이 없습니다. 현재 볼트의 노트들로 충분히 학습할 수 있습니다.'
+          : '⚠️ 지식 갭 분석이 수행되지 않았습니다. AI 분석이 활성화되어 있는지 확인하세요.',
+        cls: 'learning-path-gaps-empty-text'
+      });
+      return;
+    }
 
     // Gap List
     const listEl = container.createDiv({ cls: 'learning-path-gaps-list' });
