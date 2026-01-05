@@ -89,6 +89,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
       view.setDependencies({
         generatePathUseCase: this.generatePathUseCase,
         updateProgressUseCase: this.updateProgressUseCase,
+        pathRepository: this.pathRepository,
       });
       return view;
     });

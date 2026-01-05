@@ -10,6 +10,7 @@ import {
   MasteryLevel,
   MasteryLevelValue,
   PathStatistics,
+  IPathRepository,
 } from '../core/domain';
 import {
   GenerateLearningPathUseCase,
@@ -23,6 +24,7 @@ export const VIEW_TYPE_LEARNING_PATH = 'learning-path-view';
 export interface LearningPathViewDependencies {
   generatePathUseCase: GenerateLearningPathUseCase;
   updateProgressUseCase: UpdateProgressUseCase;
+  pathRepository: IPathRepository;
 }
 
 export class LearningPathView extends ItemView {
@@ -162,13 +164,27 @@ export class LearningPathView extends ItemView {
   }
 
   /**
-   * 경로 삭제
+   * 경로 삭제 (실제 JSON 파일 삭제)
    */
   private async deletePath(path: LearningPath): Promise<void> {
-    // Clear current path and show empty state
-    this.currentPath = null;
-    await this.refresh();
-    new Notice('학습 경로가 삭제되었습니다');
+    if (!this.dependencies) {
+      new Notice('오류: Dependencies not set');
+      return;
+    }
+
+    try {
+      // Delete from repository (actual file deletion)
+      await this.dependencies.pathRepository.delete(path.id);
+
+      // Clear current path and show empty state
+      this.currentPath = null;
+      await this.refresh();
+      new Notice('학습 경로가 삭제되었습니다');
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : '알 수 없는 오류';
+      new Notice(`삭제 실패: ${errorMsg}`);
+      console.error('[LearningPathView] Delete failed:', error);
+    }
   }
 
   /**
@@ -368,7 +384,7 @@ export class LearningPathView extends ItemView {
   }
 
   /**
-   * 경로 생성 다이얼로그
+   * 경로 생성 또는 기존 경로 로드
    */
   private async showCreateDialog(): Promise<void> {
     if (!this.dependencies) {
@@ -382,13 +398,30 @@ export class LearningPathView extends ItemView {
     const goalNoteId = activeFile?.basename;
     const goalNoteName = activeFile?.basename || '새 학습 경로';
 
+    if (!goalNoteId) {
+      new Notice('활성화된 노트가 없습니다.');
+      return;
+    }
+
     // Show loading state
     const container = this.containerEl.children[1];
     container.empty();
     container.addClass('learning-path-view');
-    this.renderLoadingState(container, goalNoteName);
 
     try {
+      // Check if existing path exists for this goal note
+      const existingPath = await this.dependencies.pathRepository.findByGoalNote(goalNoteId);
+
+      if (existingPath) {
+        // Load existing path
+        await this.displayPath(existingPath);
+        new Notice(`기존 학습 경로를 불러왔습니다: ${goalNoteName}`);
+        return;
+      }
+
+      // No existing path, generate new one
+      this.renderLoadingState(container, goalNoteName);
+
       // Build request
       const request: GeneratePathRequest = {
         name: goalNoteName,
