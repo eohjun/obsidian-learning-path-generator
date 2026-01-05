@@ -48,24 +48,14 @@ export class GenerateLearningPathUseCase {
       }
 
       // 2. Determine target notes
-      console.log('[GeneratePath] request:', {
-        goalNoteId: request.goalNoteId,
-        startNoteIds: request.startNoteIds,
-        folder: request.folder,
-      });
-
       let targetNoteIds: string[];
       if (request.startNoteIds && request.startNoteIds.length > 0) {
-        console.log('[GeneratePath] Using expandFromStartNotes');
         targetNoteIds = this.expandFromStartNotes(notes, request.startNoteIds);
       } else if (request.goalNoteId) {
-        console.log('[GeneratePath] Using findPathToGoal');
         targetNoteIds = this.findPathToGoal(notes, request.goalNoteId);
       } else {
-        console.log('[GeneratePath] Using all notes');
         targetNoteIds = notes.map((n) => n.id);
       }
-      console.log('[GeneratePath] targetNoteIds count:', targetNoteIds.length);
 
       if (targetNoteIds.length === 0) {
         return {
@@ -327,8 +317,6 @@ export class GenerateLearningPathUseCase {
       { id: goalId, depth: 0 },
     ];
 
-    console.log(`[findPathToGoal] Starting BFS for goal: ${goalId}, maxNodes: ${maxNodes}, maxDepth: ${maxDepth}`);
-
     while (queue.length > 0) {
       const { id: current, depth } = queue.shift()!;
 
@@ -336,10 +324,7 @@ export class GenerateLearningPathUseCase {
       prerequisites.add(current);
 
       // Stop if max nodes reached
-      if (prerequisites.size >= maxNodes) {
-        console.log(`[findPathToGoal] Max nodes (${maxNodes}) reached, stopping`);
-        break;
-      }
+      if (prerequisites.size >= maxNodes) break;
 
       // Stop if max depth reached
       if (depth >= maxDepth) continue;
@@ -358,7 +343,6 @@ export class GenerateLearningPathUseCase {
       }
     }
 
-    console.log(`[findPathToGoal] Result: ${prerequisites.size} nodes found`);
     return Array.from(prerequisites);
   }
 
