@@ -7,6 +7,7 @@ import { ItemView, WorkspaceLeaf, setIcon } from 'obsidian';
 import {
   LearningPath,
   LearningNode,
+  MasteryLevel,
   MasteryLevelValue,
   PathStatistics,
 } from '../core/domain';
@@ -468,6 +469,11 @@ export class LearningPathView extends ItemView {
       return;
     }
 
+    if (!this.currentPath) {
+      console.error('No current path');
+      return;
+    }
+
     const request: UpdateProgressRequest = {
       pathId,
       nodeId,
@@ -477,9 +483,26 @@ export class LearningPathView extends ItemView {
     const response = await this.dependencies.updateProgressUseCase.execute(request);
 
     if (response.success) {
+      // Update local currentPath with new progress
+      const masteryLevel = this.valueToMasteryLevel(newLevel);
+      this.currentPath = this.currentPath.updateNodeProgress(nodeId, masteryLevel);
       await this.refresh();
     } else {
       console.error('Failed to update progress:', response.error);
+    }
+  }
+
+  /**
+   * MasteryLevelValue를 MasteryLevel 객체로 변환
+   */
+  private valueToMasteryLevel(value: MasteryLevelValue): MasteryLevel {
+    switch (value) {
+      case MasteryLevelValue.IN_PROGRESS:
+        return MasteryLevel.inProgress();
+      case MasteryLevelValue.COMPLETED:
+        return MasteryLevel.completed();
+      default:
+        return MasteryLevel.notStarted();
     }
   }
 
