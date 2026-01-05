@@ -13,6 +13,7 @@ import {
   DependencyAnalysisResult,
   KnowledgeGapAnalysisResult,
   LearningPathAnalysisResult,
+  ConceptExtractionResult,
   DependencyRelation,
   KnowledgeGap,
 } from '../../core/domain';
@@ -162,6 +163,20 @@ export abstract class BaseProvider implements ILLMProvider {
     return { success: true, data: parsed, rawResponse: response.content };
   }
 
+  async extractPrerequisiteConcepts(
+    goalNote: { title: string; content: string }
+  ): Promise<LLMResponse<ConceptExtractionResult>> {
+    const prompt = this.buildConceptExtractionPrompt(goalNote);
+    const response = await this.simpleGenerate(prompt);
+
+    if (!response.success) {
+      return { success: false, error: response.error };
+    }
+
+    const parsed = this.parseConceptExtractionResponse(response.content || '', goalNote.title);
+    return { success: true, data: parsed, rawResponse: response.content };
+  }
+
   // ============================================
   // Prompt Builders
   // ============================================
@@ -293,6 +308,51 @@ ${notesContext}
 5. suggestedResources: 검색 키워드, 관련 도서, 온라인 강의 등 구체적 학습 자료 제안`;
   }
 
+  private buildConceptExtractionPrompt(goalNote: { title: string; content: string }): string {
+    return `당신은 지식 그래프와 학습 설계 전문가입니다.
+
+## 목표
+"${goalNote.title}" 노트를 완전히 이해하기 위해 **반드시 알아야 할 선수 개념(prerequisite concepts)**을 추출해주세요.
+
+## 노트 내용
+${goalNote.content.slice(0, 3000)}
+
+## 분석 요청
+이 노트의 내용을 깊이 이해하기 위해 필요한 배경 지식과 선수 개념을 JSON 형식으로 답변해주세요:
+
+\`\`\`json
+{
+  "mainTopic": "이 노트가 다루는 핵심 주제 (한 문장)",
+  "prerequisites": [
+    {
+      "concept": "선수 개념 이름",
+      "description": "왜 이 개념이 필요한지 (1-2문장)",
+      "importance": "essential|helpful|optional"
+    }
+  ],
+  "keywords": ["의미 검색에 활용할 관련 키워드들"]
+}
+\`\`\`
+
+## 중요 규칙
+1. **선수 개념(prerequisites)**:
+   - essential: 이 개념 없이는 노트 내용을 이해하기 어려움
+   - helpful: 이해에 도움이 되지만 필수는 아님
+   - optional: 심화 학습을 위한 관련 개념
+
+2. **구체적으로 추출**:
+   - "철학" 같은 광범위한 개념 대신 "플라톤의 이데아론", "칸트의 선험적 종합" 등 구체적인 개념
+   - "프로그래밍" 대신 "재귀 함수", "트리 자료구조" 등 구체적인 개념
+
+3. **키워드(keywords)**:
+   - 노트 검색에 활용할 수 있는 구체적인 단어/구문
+   - 유사 개념, 관련 용어 포함
+
+4. **개수 제한**:
+   - prerequisites: 3-10개 (가장 중요한 것만)
+   - keywords: 5-15개`;
+  }
+
   // ============================================
   // Response Parsers
   // ============================================
@@ -412,6 +472,36 @@ ${notesContext}
       dependencies: [],
       estimatedMinutes: {},
       knowledgeGaps: [],
+    };
+  }
+
+  private parseConceptExtractionResponse(
+    response: string,
+    goalTitle: string
+  ): ConceptExtractionResult {
+    try {
+      const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[1]);
+        return {
+          mainTopic: parsed.mainTopic || goalTitle,
+          prerequisites: (parsed.prerequisites || []).map((p: any) => ({
+            concept: p.concept || '',
+            description: p.description || '',
+            importance: (p.importance as 'essential' | 'helpful' | 'optional') || 'helpful',
+          })),
+          keywords: parsed.keywords || [],
+        };
+      }
+    } catch (e) {
+      console.error('Failed to parse concept extraction response:', e);
+    }
+
+    // Fallback: empty result
+    return {
+      mainTopic: goalTitle,
+      prerequisites: [],
+      keywords: [],
     };
   }
 }

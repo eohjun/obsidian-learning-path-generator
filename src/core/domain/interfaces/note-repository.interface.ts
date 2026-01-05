@@ -56,4 +56,13 @@ export interface INoteRepository {
    * 노트 존재 여부 확인
    */
   exists(noteId: string): Promise<boolean>;
+
+  /**
+   * 개념/키워드로 노트 검색
+   * 제목과 내용에서 검색하여 관련 노트 찾기
+   */
+  searchNotes(query: string, options?: {
+    excludeFolders?: string[];
+    limit?: number;
+  }): Promise<NoteData[]>;
 }

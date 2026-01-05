@@ -25,6 +25,7 @@ import {
   OpenAIProvider,
   GeminiProvider,
   GrokProvider,
+  PKMSemanticSearchAdapter,
 } from './adapters';
 import { LearningPathView, VIEW_TYPE_LEARNING_PATH } from './ui';
 import {
@@ -41,6 +42,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   private progressRepository!: ProgressRepository;
   private dependencyAnalyzer!: DependencyAnalyzer;
   private aiService!: AIService;
+  private semanticSearchAdapter!: PKMSemanticSearchAdapter;
   private generatePathUseCase!: GenerateLearningPathUseCase;
   private updateProgressUseCase!: UpdateProgressUseCase;
 
@@ -70,6 +72,9 @@ export default class LearningPathGeneratorPlugin extends Plugin {
     // Initialize AI Service
     this.initializeAIService();
 
+    // Initialize PKM Semantic Search Adapter (for PKM Note Recommender integration)
+    this.semanticSearchAdapter = new PKMSemanticSearchAdapter(this.app);
+
     // Initialize use cases
     this.generatePathUseCase = new GenerateLearningPathUseCase(
       this.noteRepository,
@@ -77,6 +82,9 @@ export default class LearningPathGeneratorPlugin extends Plugin {
       this.dependencyAnalyzer,
       this.aiService
     );
+
+    // Set semantic search service for concept-based path generation
+    this.generatePathUseCase.setSemanticSearchService(this.semanticSearchAdapter);
 
     this.updateProgressUseCase = new UpdateProgressUseCase(
       this.pathRepository,
@@ -296,6 +304,8 @@ export default class LearningPathGeneratorPlugin extends Plugin {
       this.dependencyAnalyzer,
       this.aiService
     );
+    this.generatePathUseCase.setSemanticSearchService(this.semanticSearchAdapter);
+
     this.updateProgressUseCase = new UpdateProgressUseCase(
       this.pathRepository,
       this.progressRepository

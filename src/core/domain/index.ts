@@ -36,6 +36,9 @@ export {
   type KnowledgeGapAnalysisResult,
   type LearningPathAnalysisResult,
   type KnowledgeGapItem,
+  type ConceptExtractionResult,
+  type ISemanticSearchService,
+  type SemanticSearchResult,
 } from './interfaces';
 
 // Constants

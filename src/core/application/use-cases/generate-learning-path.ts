@@ -2,8 +2,12 @@
  * GenerateLearningPathUseCase
  * 학습 경로 생성 유스케이스
  *
- * LLM을 사용하여 노트 내용을 분석하고 최적의 학습 경로를 생성합니다.
- * LLM이 없으면 링크 기반 분석으로 fallback합니다.
+ * 새 알고리즘 (v0.4.0):
+ * 1. LLM으로 목표 노트에서 선수 개념 추출
+ * 2. 의미 검색으로 각 개념에 매칭되는 노트 찾기
+ * 3. LLM으로 학습 순서 결정 및 지식 갭 식별
+ *
+ * Fallback: 링크 기반 BFS 탐색 (LLM 또는 의미 검색 불가 시)
  */
 
 import {
@@ -16,6 +20,8 @@ import {
   LearningNode,
   MasteryLevel,
   KnowledgeGapItem,
+  ISemanticSearchService,
+  ConceptExtractionResult,
 } from '../../domain';
 import {
   GeneratePathRequest,
@@ -24,6 +30,8 @@ import {
 import { AIService } from '../services';
 
 export class GenerateLearningPathUseCase {
+  private semanticSearchService: ISemanticSearchService | null = null;
+
   constructor(
     private readonly noteRepository: INoteRepository,
     private readonly pathRepository: IPathRepository,
@@ -31,51 +39,42 @@ export class GenerateLearningPathUseCase {
     private readonly aiService?: AIService
   ) {}
 
+  /**
+   * 의미 검색 서비스 설정 (PKM Note Recommender 연동)
+   */
+  setSemanticSearchService(service: ISemanticSearchService | null): void {
+    this.semanticSearchService = service;
+  }
+
   async execute(request: GeneratePathRequest): Promise<GeneratePathResponse> {
     const warnings: string[] = [];
 
     try {
-      // 1. Fetch notes based on filter criteria
-      const notes = await this.noteRepository.getAllNotes({
+      // 1. Get all notes for reference
+      const allNotes = await this.noteRepository.getAllNotes({
         folder: request.folder,
         excludeFolders: request.excludeFolders,
       });
 
-      if (notes.length === 0) {
+      if (allNotes.length === 0) {
         return {
           success: false,
           error: 'No notes found matching the criteria',
         };
       }
 
-      // 2. Determine target notes
-      let targetNoteIds: string[];
-      if (request.startNoteIds && request.startNoteIds.length > 0) {
-        targetNoteIds = this.expandFromStartNotes(notes, request.startNoteIds);
-      } else if (request.goalNoteId) {
-        targetNoteIds = this.findPathToGoal(notes, request.goalNoteId);
-      } else {
-        targetNoteIds = notes.map((n) => n.id);
-      }
+      const noteMap = new Map(allNotes.map((n) => [n.id, n]));
 
-      if (targetNoteIds.length === 0) {
+      // 2. Get goal note
+      const goalNoteId = request.goalNoteId;
+      if (!goalNoteId) {
         return {
           success: false,
-          error: 'No valid notes found for path generation',
+          error: 'Goal note ID is required',
         };
       }
 
-      // 3. Get target notes data
-      const nodeMap = new Map(notes.map((n) => [n.id, n]));
-      const targetNotes = targetNoteIds
-        .map((id) => nodeMap.get(id))
-        .filter((n): n is NoteData => n !== null);
-
-      // 4. Determine goal note
-      const goalNoteId =
-        request.goalNoteId || targetNoteIds[targetNoteIds.length - 1];
-      const goalNote = nodeMap.get(goalNoteId);
-
+      const goalNote = noteMap.get(goalNoteId);
       if (!goalNote) {
         return {
           success: false,
@@ -83,50 +82,60 @@ export class GenerateLearningPathUseCase {
         };
       }
 
-      // 5. Try LLM analysis first, fallback to link-based
+      // 3. Choose algorithm based on available services
+      const useLLM = (request.useLLMAnalysis !== false && this.aiService?.isAvailable()) ?? false;
+      const useSemanticSearch = this.semanticSearchService?.isAvailable() ?? false;
+
       let sortedNodeIds: string[];
       let levels: string[][] = [];
       let estimatedMinutes: Record<string, number> = {};
       let knowledgeGaps: KnowledgeGapItem[] = [];
-      const totalAnalyzedNotes = targetNotes.length;
+      let totalAnalyzedNotes = 0;
 
-      const useLLM = request.useLLMAnalysis !== false && this.aiService;
+      if (useLLM && useSemanticSearch) {
+        // 새 알고리즘: LLM 개념 추출 + 의미 검색
+        console.log('[LearningPath] Using semantic search algorithm');
+        const result = await this.executeWithSemanticSearch(goalNote, allNotes, noteMap);
 
-      if (useLLM && this.aiService!.isAvailable()) {
-        // LLM-powered analysis
-        const llmResult = await this.analyzewithLLM(goalNote, targetNotes);
-
-        if (llmResult.success) {
-          sortedNodeIds = llmResult.learningOrder;
-          estimatedMinutes = llmResult.estimatedMinutes;
-          knowledgeGaps = llmResult.knowledgeGaps;
-          levels = [sortedNodeIds]; // Simple single level for now
+        if (result.success) {
+          sortedNodeIds = result.sortedNodeIds;
+          estimatedMinutes = result.estimatedMinutes;
+          knowledgeGaps = result.knowledgeGaps;
+          totalAnalyzedNotes = result.totalAnalyzedNotes;
+          levels = [sortedNodeIds];
         } else {
-          warnings.push(`LLM 분석 실패, 링크 기반 분석으로 전환: ${llmResult.error}`);
-          const linkResult = this.analyzeWithLinks(targetNoteIds, notes);
-          sortedNodeIds = linkResult.sortedIds;
-          levels = linkResult.levels;
-          if (linkResult.hasCycle) {
-            warnings.push('Circular dependency detected. Some ordering may be arbitrary.');
-          }
+          // Fallback to link-based
+          warnings.push(`의미 검색 실패, 링크 기반 분석으로 전환: ${result.error}`);
+          const fallbackResult = await this.executeFallback(goalNote, allNotes, noteMap, useLLM);
+          sortedNodeIds = fallbackResult.sortedNodeIds;
+          estimatedMinutes = fallbackResult.estimatedMinutes;
+          knowledgeGaps = fallbackResult.knowledgeGaps;
+          totalAnalyzedNotes = fallbackResult.totalAnalyzedNotes;
+          levels = fallbackResult.levels;
+          if (fallbackResult.warnings) warnings.push(...fallbackResult.warnings);
         }
       } else {
-        // Link-based analysis (fallback)
+        // Fallback: 링크 기반 분석
         if (!useLLM) {
           warnings.push('LLM 분석이 비활성화되어 링크 기반 분석을 수행합니다.');
         }
-        const linkResult = this.analyzeWithLinks(targetNoteIds, notes);
-        sortedNodeIds = linkResult.sortedIds;
-        levels = linkResult.levels;
-        if (linkResult.hasCycle) {
-          warnings.push('Circular dependency detected. Some ordering may be arbitrary.');
+        if (!useSemanticSearch) {
+          warnings.push('PKM Note Recommender 연동 불가, 링크 기반 분석을 수행합니다.');
         }
+
+        const fallbackResult = await this.executeFallback(goalNote, allNotes, noteMap, useLLM);
+        sortedNodeIds = fallbackResult.sortedNodeIds;
+        estimatedMinutes = fallbackResult.estimatedMinutes;
+        knowledgeGaps = fallbackResult.knowledgeGaps;
+        totalAnalyzedNotes = fallbackResult.totalAnalyzedNotes;
+        levels = fallbackResult.levels;
+        if (fallbackResult.warnings) warnings.push(...fallbackResult.warnings);
       }
 
-      // 6. Create LearningNodes
+      // 4. Create LearningNodes
       const learningNodes: LearningNode[] = sortedNodeIds
         .map((id, index) => {
-          const note = nodeMap.get(id);
+          const note = noteMap.get(id);
           if (!note) return null;
           return LearningNode.create({
             noteId: id,
@@ -139,10 +148,8 @@ export class GenerateLearningPathUseCase {
         })
         .filter((n): n is LearningNode => n !== null);
 
-      // 7. Determine goal note title
-      const goalNoteTitle = request.name || goalNote?.basename || goalNoteId;
-
-      // 8. Create LearningPath with nodes and knowledge gaps
+      // 5. Create LearningPath
+      const goalNoteTitle = request.name || goalNote.basename || goalNoteId;
       const path = LearningPath.create({
         id: this.generateId(),
         goalNoteId,
@@ -152,7 +159,7 @@ export class GenerateLearningPathUseCase {
         totalAnalyzedNotes,
       });
 
-      // 9. Save path to repository
+      // 6. Save path
       await this.pathRepository.save(path);
 
       return {
@@ -167,10 +174,234 @@ export class GenerateLearningPathUseCase {
     } catch (error) {
       return {
         success: false,
-        error:
-          error instanceof Error ? error.message : 'Unknown error occurred',
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
       };
     }
+  }
+
+  /**
+   * 새 알고리즘: LLM 개념 추출 + 의미 검색
+   */
+  private async executeWithSemanticSearch(
+    goalNote: NoteData,
+    allNotes: NoteData[],
+    noteMap: Map<string, NoteData>
+  ): Promise<{
+    success: boolean;
+    sortedNodeIds: string[];
+    estimatedMinutes: Record<string, number>;
+    knowledgeGaps: KnowledgeGapItem[];
+    totalAnalyzedNotes: number;
+    error?: string;
+  }> {
+    if (!this.aiService || !this.semanticSearchService) {
+      return {
+        success: false,
+        sortedNodeIds: [],
+        estimatedMinutes: {},
+        knowledgeGaps: [],
+        totalAnalyzedNotes: 0,
+        error: 'Required services not available',
+      };
+    }
+
+    // 1. LLM으로 선수 개념 추출
+    console.log('[LearningPath] Extracting prerequisite concepts...');
+    const extractionResult = await this.aiService.extractPrerequisiteConcepts({
+      title: goalNote.basename,
+      content: goalNote.content,
+    });
+
+    if (!extractionResult.success || !extractionResult.data) {
+      return {
+        success: false,
+        sortedNodeIds: [],
+        estimatedMinutes: {},
+        knowledgeGaps: [],
+        totalAnalyzedNotes: 0,
+        error: extractionResult.error || '개념 추출 실패',
+      };
+    }
+
+    const concepts = extractionResult.data;
+    console.log(`[LearningPath] Extracted ${concepts.prerequisites.length} concepts, ${concepts.keywords.length} keywords`);
+
+    // 2. 각 개념에 대해 의미 검색 수행
+    const searchQueries = [
+      ...concepts.prerequisites.map((p) => p.concept),
+      ...concepts.keywords.slice(0, 5), // 상위 5개 키워드만
+    ];
+
+    const foundNotes = new Map<string, NoteData>();
+    const conceptNoteMapping = new Map<string, string[]>(); // concept -> noteIds
+
+    for (const query of searchQueries) {
+      const searchResults = await this.semanticSearchService.findSimilarToContent(query, {
+        limit: 5,
+        threshold: 0.5,
+        excludeNoteIds: [goalNote.id],
+      });
+
+      const matchedNoteIds: string[] = [];
+      for (const result of searchResults) {
+        const note = noteMap.get(result.noteId);
+        if (note && !foundNotes.has(result.noteId)) {
+          foundNotes.set(result.noteId, note);
+          matchedNoteIds.push(result.noteId);
+        }
+      }
+      conceptNoteMapping.set(query, matchedNoteIds);
+    }
+
+    console.log(`[LearningPath] Found ${foundNotes.size} unique related notes`);
+
+    // 3. 지식 갭 식별: 개념 중 매칭되는 노트가 없는 것
+    const knowledgeGaps: KnowledgeGapItem[] = [];
+    for (const prereq of concepts.prerequisites) {
+      const matchedNotes = conceptNoteMapping.get(prereq.concept) || [];
+      if (matchedNotes.length === 0) {
+        knowledgeGaps.push({
+          concept: prereq.concept,
+          reason: prereq.description,
+          priority: prereq.importance === 'essential' ? 'high' :
+                   prereq.importance === 'helpful' ? 'medium' : 'low',
+          suggestedResources: [`"${prereq.concept}" 관련 자료 검색`, `${prereq.concept} 입문서`],
+        });
+      }
+    }
+
+    // 4. 발견된 노트가 없으면 실패
+    if (foundNotes.size === 0) {
+      return {
+        success: false,
+        sortedNodeIds: [],
+        estimatedMinutes: {},
+        knowledgeGaps,
+        totalAnalyzedNotes: 0,
+        error: '관련 노트를 찾지 못했습니다.',
+      };
+    }
+
+    // 5. LLM으로 학습 순서 결정
+    const relatedNotes = Array.from(foundNotes.values()).map((n) => ({
+      title: n.basename,
+      content: n.content,
+    }));
+
+    const analysisResult = await this.aiService.analyzeNotesForLearningPath(
+      { title: goalNote.basename, content: goalNote.content },
+      relatedNotes
+    );
+
+    if (!analysisResult.success || !analysisResult.data) {
+      // Fallback: 단순히 발견된 노트들 + 목표 노트
+      const sortedNodeIds = [...foundNotes.keys(), goalNote.id];
+      return {
+        success: true,
+        sortedNodeIds,
+        estimatedMinutes: {},
+        knowledgeGaps,
+        totalAnalyzedNotes: foundNotes.size + 1,
+      };
+    }
+
+    // 6. 결과 조합
+    // learningOrder에서 실제 존재하는 노트 ID로 변환
+    const titleToId = new Map<string, string>();
+    for (const [id, note] of noteMap) {
+      titleToId.set(note.basename, id);
+    }
+    titleToId.set(goalNote.basename, goalNote.id);
+
+    const sortedNodeIds = analysisResult.data.learningOrder
+      .map((title) => titleToId.get(title))
+      .filter((id): id is string => id !== undefined);
+
+    // 목표 노트가 없으면 추가
+    if (!sortedNodeIds.includes(goalNote.id)) {
+      sortedNodeIds.push(goalNote.id);
+    }
+
+    // LLM이 식별한 추가 지식 갭 병합
+    const llmGaps = analysisResult.data.knowledgeGaps || [];
+    for (const llmGap of llmGaps) {
+      // 이미 있는 갭은 건너뛰기
+      if (!knowledgeGaps.find((g) => g.concept === llmGap.concept)) {
+        knowledgeGaps.push(llmGap);
+      }
+    }
+
+    return {
+      success: true,
+      sortedNodeIds,
+      estimatedMinutes: analysisResult.data.estimatedMinutes || {},
+      knowledgeGaps,
+      totalAnalyzedNotes: foundNotes.size + 1,
+    };
+  }
+
+  /**
+   * Fallback: 기존 링크 기반 알고리즘
+   */
+  private async executeFallback(
+    goalNote: NoteData,
+    allNotes: NoteData[],
+    noteMap: Map<string, NoteData>,
+    useLLM: boolean
+  ): Promise<{
+    sortedNodeIds: string[];
+    estimatedMinutes: Record<string, number>;
+    knowledgeGaps: KnowledgeGapItem[];
+    totalAnalyzedNotes: number;
+    levels: string[][];
+    warnings?: string[];
+  }> {
+    const warnings: string[] = [];
+
+    // 링크 기반으로 관련 노트 찾기
+    const targetNoteIds = this.findPathToGoal(allNotes, goalNote.id);
+    const targetNotes = targetNoteIds
+      .map((id) => noteMap.get(id))
+      .filter((n): n is NoteData => n !== undefined);
+
+    let sortedNodeIds: string[];
+    let levels: string[][] = [];
+    let estimatedMinutes: Record<string, number> = {};
+    let knowledgeGaps: KnowledgeGapItem[] = [];
+
+    if (useLLM && this.aiService?.isAvailable()) {
+      const llmResult = await this.analyzewithLLM(goalNote, targetNotes);
+      if (llmResult.success) {
+        sortedNodeIds = llmResult.learningOrder;
+        estimatedMinutes = llmResult.estimatedMinutes;
+        knowledgeGaps = llmResult.knowledgeGaps;
+        levels = [sortedNodeIds];
+      } else {
+        warnings.push(`LLM 분석 실패: ${llmResult.error}`);
+        const linkResult = this.analyzeWithLinks(targetNoteIds, allNotes);
+        sortedNodeIds = linkResult.sortedIds;
+        levels = linkResult.levels;
+        if (linkResult.hasCycle) {
+          warnings.push('순환 의존성 발견. 일부 순서가 임의적일 수 있습니다.');
+        }
+      }
+    } else {
+      const linkResult = this.analyzeWithLinks(targetNoteIds, allNotes);
+      sortedNodeIds = linkResult.sortedIds;
+      levels = linkResult.levels;
+      if (linkResult.hasCycle) {
+        warnings.push('순환 의존성 발견. 일부 순서가 임의적일 수 있습니다.');
+      }
+    }
+
+    return {
+      sortedNodeIds,
+      estimatedMinutes,
+      knowledgeGaps,
+      totalAnalyzedNotes: targetNotes.length,
+      levels,
+      warnings: warnings.length > 0 ? warnings : undefined,
+    };
   }
 
   /**

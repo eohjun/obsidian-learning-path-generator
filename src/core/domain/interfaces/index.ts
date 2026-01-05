@@ -21,4 +21,10 @@ export {
   type KnowledgeGapAnalysisResult,
   type LearningPathAnalysisResult,
   type KnowledgeGapItem,
+  type ConceptExtractionResult,
 } from './llm-provider.interface';
+
+export {
+  type ISemanticSearchService,
+  type SemanticSearchResult,
+} from './semantic-search.interface';

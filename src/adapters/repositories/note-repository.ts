@@ -130,6 +130,38 @@ export class NoteRepository implements INoteRepository {
     return files.some((f) => f.basename === noteId);
   }
 
+  async searchNotes(
+    query: string,
+    options?: {
+      excludeFolders?: string[];
+      limit?: number;
+    }
+  ): Promise<NoteData[]> {
+    const allNotes = await this.getAllNotes({
+      excludeFolders: options?.excludeFolders,
+    });
+
+    const queryLower = query.toLowerCase();
+    const results: NoteData[] = [];
+
+    for (const note of allNotes) {
+      // 제목 또는 내용에서 검색
+      const titleMatch = note.basename.toLowerCase().includes(queryLower);
+      const contentMatch = note.content.toLowerCase().includes(queryLower);
+
+      if (titleMatch || contentMatch) {
+        results.push(note);
+      }
+
+      // 결과 수 제한
+      if (options?.limit && results.length >= options.limit) {
+        break;
+      }
+    }
+
+    return results;
+  }
+
   /**
    * TFile을 NoteData로 변환
    */

@@ -13,6 +13,7 @@ import {
   DependencyAnalysisResult,
   KnowledgeGapAnalysisResult,
   LearningPathAnalysisResult,
+  ConceptExtractionResult,
   DependencyRelation,
 } from '../../domain';
 
@@ -156,6 +157,16 @@ export class AIService {
       return { success: false, error: '프로바이더를 사용할 수 없습니다.' };
     }
     return provider.analyzeNotesForLearningPath(goalNote, relatedNotes);
+  }
+
+  async extractPrerequisiteConcepts(
+    goalNote: { title: string; content: string }
+  ): Promise<LLMResponse<ConceptExtractionResult>> {
+    const provider = this.getCurrentProvider();
+    if (!provider || !provider.isAvailable()) {
+      return { success: false, error: '프로바이더를 사용할 수 없습니다.' };
+    }
+    return provider.extractPrerequisiteConcepts(goalNote);
   }
 }
 

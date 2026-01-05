@@ -15,3 +15,6 @@ export {
   GeminiProvider,
   GrokProvider,
 } from './llm';
+
+// PKM Note Recommender Integration
+export { PKMSemanticSearchAdapter } from './pkm-recommender';
