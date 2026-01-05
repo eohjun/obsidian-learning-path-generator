@@ -4,7 +4,7 @@
  * Generate learning paths and curriculum from your vault notes with AI.
  */
 
-import { Plugin, WorkspaceLeaf, Notice } from 'obsidian';
+import { Plugin, WorkspaceLeaf, Notice, TFile, TFolder } from 'obsidian';
 import {
   DependencyAnalyzer,
   AIProviderType,
@@ -49,6 +49,9 @@ export default class LearningPathGeneratorPlugin extends Plugin {
 
     // Load settings
     await this.loadSettings();
+
+    // Migrate storage path if needed (from .learning-paths to _learning-paths)
+    await this.migrateStoragePath();
 
     // Initialize repositories with settings
     this.noteRepository = new NoteRepository(this.app);
@@ -174,6 +177,74 @@ export default class LearningPathGeneratorPlugin extends Plugin {
     await this.saveData(this.settings);
     // Reinitialize services with new settings
     this.reinitializeServices();
+  }
+
+  /**
+   * 저장 경로 마이그레이션 (.learning-paths → _learning-paths)
+   */
+  private async migrateStoragePath(): Promise<void> {
+    const oldPath = '.learning-paths';
+    const newPath = '_learning-paths';
+
+    // Only migrate if still using old path
+    if (this.settings.storagePath !== oldPath) {
+      return;
+    }
+
+    const oldFolder = this.app.vault.getAbstractFileByPath(oldPath);
+    if (!oldFolder || !(oldFolder instanceof TFolder)) {
+      // Old folder doesn't exist, just update settings
+      this.settings.storagePath = newPath;
+      await this.saveData(this.settings);
+      console.log('[Migration] Updated storagePath to', newPath);
+      return;
+    }
+
+    // Create new folder if needed
+    let newFolder = this.app.vault.getAbstractFileByPath(newPath);
+    if (!newFolder) {
+      try {
+        await this.app.vault.createFolder(newPath);
+        console.log('[Migration] Created new folder:', newPath);
+      } catch (error) {
+        // Ignore "Folder already exists" error
+        if (!(error instanceof Error) || !error.message.includes('Folder already exists')) {
+          console.error('[Migration] Failed to create folder:', error);
+          return;
+        }
+      }
+    }
+
+    // Move files from old folder to new folder
+    const filesToMove = oldFolder.children.filter(f => f instanceof TFile);
+    for (const file of filesToMove) {
+      if (file instanceof TFile) {
+        const newFilePath = `${newPath}/${file.name}`;
+        try {
+          await this.app.vault.rename(file, newFilePath);
+          console.log('[Migration] Moved file:', file.path, '→', newFilePath);
+        } catch (error) {
+          console.error('[Migration] Failed to move file:', file.path, error);
+        }
+      }
+    }
+
+    // Delete old folder if empty
+    try {
+      const updatedOldFolder = this.app.vault.getAbstractFileByPath(oldPath);
+      if (updatedOldFolder instanceof TFolder && updatedOldFolder.children.length === 0) {
+        await this.app.vault.delete(updatedOldFolder);
+        console.log('[Migration] Deleted old folder:', oldPath);
+      }
+    } catch (error) {
+      console.error('[Migration] Failed to delete old folder:', error);
+    }
+
+    // Update settings
+    this.settings.storagePath = newPath;
+    await this.saveData(this.settings);
+    console.log('[Migration] Migration complete. storagePath updated to', newPath);
+    new Notice('학습 경로 저장 폴더가 마이그레이션되었습니다.');
   }
 
   /**

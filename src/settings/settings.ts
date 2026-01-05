@@ -35,7 +35,7 @@ export const DEFAULT_SETTINGS: LearningPathSettings = {
     models: {},
     enabled: true,
   },
-  storagePath: '.learning-paths',
+  storagePath: '_learning-paths',
   masteryLevelKey: 'learning_mastery',
   lastStudiedKey: 'learning_last_studied',
   studyCountKey: 'learning_study_count',
