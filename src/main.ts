@@ -347,25 +347,32 @@ export default class LearningPathGeneratorPlugin extends Plugin {
 
     const goalNoteId = activeFile.basename;
 
+    // Activate view first and clear any existing path
+    await this.activateView();
+    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_LEARNING_PATH);
+    if (leaves.length === 0) {
+      new Notice('학습 경로 뷰를 열 수 없습니다.');
+      return;
+    }
+    const view = leaves[0].view as LearningPathView;
+
+    // Clear current path in view before loading/generating new one
+    await view.clearCurrentPath();
+
     try {
       // Check if existing path exists for this goal note
       const existingPath = await this.pathRepository.findByGoalNote(goalNoteId);
 
       if (existingPath) {
         // Load existing path
+        await view.displayPath(existingPath);
         new Notice(`기존 학습 경로를 불러왔습니다: ${goalNoteId}`);
-        await this.activateView();
-
-        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_LEARNING_PATH);
-        if (leaves.length > 0) {
-          const view = leaves[0].view as LearningPathView;
-          await view.displayPath(existingPath);
-        }
         return;
       }
 
       // No existing path, generate new one
       new Notice(`'${goalNoteId}' 학습 경로 생성 중...`);
+      await view.showLoadingState(goalNoteId);
 
       const response = await this.generatePathUseCase.execute({
         name: `${goalNoteId}까지의 학습 경로`,
@@ -382,23 +389,18 @@ export default class LearningPathGeneratorPlugin extends Plugin {
           new Notice(`경고: ${response.warnings.join(', ')}`, 5000);
         }
 
-        // Activate view and display path
-        await this.activateView();
-
-        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_LEARNING_PATH);
-        if (leaves.length > 0) {
-          const view = leaves[0].view as LearningPathView;
-          const path = await this.pathRepository.findById(response.path.id);
-          if (path) {
-            await view.displayPath(path);
-          }
+        const path = await this.pathRepository.findById(response.path.id);
+        if (path) {
+          await view.displayPath(path);
         }
       } else {
+        await view.showErrorState(response.error || '학습 경로 생성에 실패했습니다.');
         new Notice(`학습 경로 생성 실패: ${response.error}`, 5000);
         console.error('Failed to generate path:', response.error);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : '알 수 없는 오류';
+      await view.showErrorState(message);
       new Notice(`오류 발생: ${message}`, 5000);
       console.error('Error generating path:', error);
     }

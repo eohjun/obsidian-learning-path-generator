@@ -180,6 +180,35 @@ export class LearningPathView extends ItemView {
   }
 
   /**
+   * 현재 경로 비우기 (외부에서 호출 가능)
+   * main.ts에서 다른 노트의 경로를 로드하기 전에 호출
+   */
+  async clearCurrentPath(): Promise<void> {
+    this.currentPath = null;
+    await this.refresh();
+  }
+
+  /**
+   * 로딩 상태 표시 (외부에서 호출 가능)
+   */
+  async showLoadingState(goalNoteId: string): Promise<void> {
+    const container = this.containerEl.children[1];
+    container.empty();
+    container.addClass('learning-path-view');
+    this.renderLoadingState(container, goalNoteId);
+  }
+
+  /**
+   * 오류 상태 표시 (외부에서 호출 가능)
+   */
+  async showErrorState(message: string): Promise<void> {
+    const container = this.containerEl.children[1];
+    container.empty();
+    container.addClass('learning-path-view');
+    this.renderErrorState(container, message);
+  }
+
+  /**
    * 경로 삭제 (실제 JSON 파일 삭제)
    */
   private async deletePath(path: LearningPath): Promise<void> {
