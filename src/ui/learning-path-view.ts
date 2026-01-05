@@ -355,7 +355,8 @@ export class LearningPathView extends ItemView {
 
     // Get active file as goal note
     const activeFile = this.app.workspace.getActiveFile();
-    const goalNoteId = activeFile?.path;
+    // Note: NoteData.id uses basename, not full path
+    const goalNoteId = activeFile?.basename;
     const goalNoteName = activeFile?.basename || '새 학습 경로';
 
     // Show loading state
