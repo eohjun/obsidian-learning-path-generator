@@ -288,50 +288,57 @@ export class GenerateLearningPathUseCase {
   }
 
   /**
-   * 목표 노트까지의 경로에 필요한 모든 노트 찾기
+   * 목표 노트의 선수 지식(prerequisites) 찾기
+   *
+   * 알고리즘: 목표 노트가 링크하는 노트들을 재귀적으로 탐색
+   * A → B 링크 = "A가 B를 참조" = "A를 이해하려면 B를 먼저 알아야 함"
+   * 따라서 forward links를 따라가며 선수 지식을 찾음
+   *
+   * @param maxDepth - 최대 탐색 깊이 (기본값: 3)
    */
-  private findPathToGoal(notes: NoteData[], goalId: string): string[] {
+  private findPathToGoal(
+    notes: NoteData[],
+    goalId: string,
+    maxDepth: number = 3
+  ): string[] {
     const noteMap = new Map(notes.map((n) => [n.id, n]));
     const goalNote = noteMap.get(goalId);
 
     if (!goalNote) {
-      return notes.map((n) => n.id);
+      // Goal not found - return only direct folder neighbors or empty
+      return [];
     }
 
-    // BFS to find all ancestors (prerequisites) of goal
-    const ancestors = new Set<string>();
-    const queue = [goalId];
-
-    // Build reverse link map (what links TO each note)
-    const reverseLinks = new Map<string, string[]>();
-    for (const note of notes) {
-      const links = note.metadata.links ?? [];
-      for (const link of links) {
-        if (!reverseLinks.has(link)) {
-          reverseLinks.set(link, []);
-        }
-        reverseLinks.get(link)!.push(note.id);
-      }
-    }
+    // BFS to find prerequisites (what the goal note depends on)
+    const prerequisites = new Set<string>();
+    const queue: Array<{ id: string; depth: number }> = [
+      { id: goalId, depth: 0 },
+    ];
 
     while (queue.length > 0) {
-      const current = queue.shift()!;
-      if (ancestors.has(current) && current !== goalId) continue;
-      ancestors.add(current);
+      const { id: current, depth } = queue.shift()!;
 
-      // Get notes that link to current (potential prerequisites)
-      const backlinks = noteMap.get(current)?.metadata.backlinks ?? [];
-      const reverseLink = reverseLinks.get(current) ?? [];
-      const allBacklinks = [...new Set([...backlinks, ...reverseLink])];
+      if (prerequisites.has(current) && current !== goalId) continue;
+      prerequisites.add(current);
 
-      for (const backlink of allBacklinks) {
-        if (noteMap.has(backlink) && !ancestors.has(backlink)) {
-          queue.push(backlink);
+      // Stop if max depth reached
+      if (depth >= maxDepth) continue;
+
+      // Get notes that current note LINKS TO (forward links = dependencies)
+      const currentNote = noteMap.get(current);
+      if (!currentNote) continue;
+
+      const forwardLinks = currentNote.metadata.links ?? [];
+
+      for (const link of forwardLinks) {
+        // Only include notes that exist in our note set
+        if (noteMap.has(link) && !prerequisites.has(link)) {
+          queue.push({ id: link, depth: depth + 1 });
         }
       }
     }
 
-    return Array.from(ancestors);
+    return Array.from(prerequisites);
   }
 
   /**
