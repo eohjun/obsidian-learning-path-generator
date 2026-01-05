@@ -119,7 +119,17 @@ export class PathRepository implements IPathRepository {
     const folder = this.app.vault.getAbstractFileByPath(this.config.storagePath);
 
     if (!folder) {
-      await this.app.vault.createFolder(this.config.storagePath);
+      try {
+        await this.app.vault.createFolder(this.config.storagePath);
+      } catch (error) {
+        // Ignore "Folder already exists" error (race condition or cache issue)
+        if (
+          !(error instanceof Error) ||
+          !error.message.includes('Folder already exists')
+        ) {
+          throw error;
+        }
+      }
     }
   }
 }
