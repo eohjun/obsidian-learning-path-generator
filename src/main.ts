@@ -90,6 +90,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
         generatePathUseCase: this.generatePathUseCase,
         updateProgressUseCase: this.updateProgressUseCase,
         pathRepository: this.pathRepository,
+        getMaxDisplayNodes: () => this.settings.maxDisplayNodes,
       });
       return view;
     });
@@ -168,6 +169,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
       excludeFolders: loaded.excludeFolders ?? defaults.excludeFolders,
       defaultEstimatedMinutes: loaded.defaultEstimatedMinutes ?? defaults.defaultEstimatedMinutes,
       autoOpenView: loaded.autoOpenView ?? defaults.autoOpenView,
+      maxDisplayNodes: loaded.maxDisplayNodes ?? defaults.maxDisplayNodes,
     };
   }
 

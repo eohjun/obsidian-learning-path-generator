@@ -132,6 +132,23 @@ export class LearningPathSettingTab extends PluginSettingTab {
           })
       );
 
+    // Display Settings
+    containerEl.createEl('h3', { text: '표시 설정' });
+
+    new Setting(containerEl)
+      .setName('최대 표시 노드 수')
+      .setDesc('학습 경로에서 표시할 최대 노드 수 (분석은 전체 노트를 대상으로 수행)')
+      .addSlider((slider) =>
+        slider
+          .setLimits(10, 100, 10)
+          .setValue(this.plugin.settings.maxDisplayNodes)
+          .setDynamicTooltip()
+          .onChange(async (value) => {
+            this.plugin.settings.maxDisplayNodes = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
     // About Section
     containerEl.createEl('h3', { text: '정보' });
 

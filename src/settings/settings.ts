@@ -26,6 +26,9 @@ export interface LearningPathSettings {
   excludeFolders: string[];
   defaultEstimatedMinutes: number;
   autoOpenView: boolean;
+
+  // Display Settings
+  maxDisplayNodes: number;
 }
 
 export const DEFAULT_SETTINGS: LearningPathSettings = {
@@ -42,4 +45,5 @@ export const DEFAULT_SETTINGS: LearningPathSettings = {
   excludeFolders: ['Templates', 'Archive', '.obsidian'],
   defaultEstimatedMinutes: 15,
   autoOpenView: false,
+  maxDisplayNodes: 50,
 };

@@ -269,6 +269,17 @@
   height: 16px;
 }
 
+/* More Nodes Indicator */
+.learning-path-more-nodes {
+  padding: 12px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: var(--background-secondary);
+  border-radius: 6px;
+  margin-top: 4px;
+}
+
 /* Actions */
 .learning-path-actions {
   padding-top: 16px;

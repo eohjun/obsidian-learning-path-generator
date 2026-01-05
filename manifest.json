@@ -1,7 +1,7 @@
 {
   "id": "learning-path-generator",
   "name": "Learning Path Generator",
-  "version": "0.3.20",
+  "version": "0.3.21",
   "minAppVersion": "1.0.0",
   "description": "Generate learning paths and curriculum from your vault notes with AI",
   "author": "eohjun",

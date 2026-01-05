@@ -26,6 +26,7 @@ export interface LearningPathViewDependencies {
   generatePathUseCase: GenerateLearningPathUseCase;
   updateProgressUseCase: UpdateProgressUseCase;
   pathRepository: IPathRepository;
+  getMaxDisplayNodes: () => number;
 }
 
 export class LearningPathView extends ItemView {
@@ -400,9 +401,12 @@ export class LearningPathView extends ItemView {
    * 노드 목록 렌더링
    */
   private renderNodes(container: Element, path: LearningPath): void {
-    const nodes = path.nodes;
+    const allNodes = path.nodes;
+    const maxDisplay = this.dependencies?.getMaxDisplayNodes() ?? 50;
+    const displayNodes = allNodes.slice(0, maxDisplay);
+    const hiddenCount = allNodes.length - displayNodes.length;
 
-    for (const node of nodes) {
+    for (const node of displayNodes) {
       const nodeEl = container.createDiv({
         cls: `learning-path-node ${this.getNodeStatusClass(node)}`,
       });
@@ -428,6 +432,14 @@ export class LearningPathView extends ItemView {
       // Actions
       const actionsEl = nodeEl.createDiv({ cls: 'learning-path-node-actions' });
       this.renderNodeActions(actionsEl, path, node);
+    }
+
+    // Show hidden count if there are more nodes
+    if (hiddenCount > 0) {
+      const moreEl = container.createDiv({ cls: 'learning-path-more-nodes' });
+      moreEl.createSpan({
+        text: `... 외 ${hiddenCount}개 노드 (설정에서 표시 수 조정 가능)`,
+      });
     }
   }
 
