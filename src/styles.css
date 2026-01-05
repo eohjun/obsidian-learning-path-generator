@@ -1,7 +1,312 @@
 /* Learning Path Generator Plugin Styles */
 
-.learning-path-view-container {
+/* ========================================
+   Learning Path View
+   ======================================== */
+
+.learning-path-view {
   padding: 16px;
   user-select: text;
   -webkit-user-select: text;
+}
+
+/* Empty State */
+.learning-path-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.learning-path-empty-icon {
+  margin-bottom: 16px;
+  color: var(--text-muted);
+}
+
+.learning-path-empty-icon svg {
+  width: 48px;
+  height: 48px;
+}
+
+.learning-path-empty h3 {
+  margin: 0 0 8px 0;
+  color: var(--text-normal);
+}
+
+.learning-path-empty p {
+  margin: 0 0 16px 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* Header */
+.learning-path-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.learning-path-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.learning-path-title-icon {
+  display: flex;
+  align-items: center;
+  color: var(--text-accent);
+}
+
+.learning-path-title-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.learning-path-menu-btn {
+  padding: 4px;
+  border-radius: 4px;
+  color: var(--text-muted);
+}
+
+.learning-path-menu-btn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+/* Statistics */
+.learning-path-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.learning-path-stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px;
+  background: var(--background-secondary);
+  border-radius: 8px;
+}
+
+.learning-path-stat-icon {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+  color: var(--text-muted);
+}
+
+.learning-path-stat-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.learning-path-stat-value {
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.learning-path-stat-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Progress Bar */
+.learning-path-progress {
+  margin-bottom: 16px;
+}
+
+.learning-path-progress-label {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.learning-path-progress-bar {
+  height: 8px;
+  background: var(--background-modifier-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.learning-path-progress-fill {
+  height: 100%;
+  background: var(--interactive-accent);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.learning-path-progress-fill.complete {
+  background: var(--color-green);
+}
+
+/* Node List */
+.learning-path-nodes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.learning-path-node {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  background: var(--background-secondary);
+  border-radius: 8px;
+  border-left: 3px solid var(--background-modifier-border);
+  transition: border-color 0.2s ease;
+}
+
+.learning-path-node.not-started {
+  border-left-color: var(--text-muted);
+}
+
+.learning-path-node.in-progress {
+  border-left-color: var(--color-yellow);
+  background: var(--background-secondary-alt);
+}
+
+.learning-path-node.completed {
+  border-left-color: var(--color-green);
+}
+
+.learning-path-node-status {
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.learning-path-node-status .status-icon {
+  display: flex;
+  align-items: center;
+}
+
+.learning-path-node-status .status-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.learning-path-node-status .status-icon.not-started {
+  color: var(--text-muted);
+}
+
+.learning-path-node-status .status-icon.in-progress {
+  color: var(--color-yellow);
+}
+
+.learning-path-node-status .status-icon.completed {
+  color: var(--color-green);
+}
+
+.learning-path-node-content {
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.learning-path-node-title {
+  font-weight: 500;
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.learning-path-node-title a {
+  color: var(--text-normal);
+  text-decoration: none;
+}
+
+.learning-path-node-title a:hover {
+  color: var(--text-accent);
+  text-decoration: underline;
+}
+
+.learning-path-node-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.learning-path-node-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 4px;
+}
+
+.learning-path-node-btn {
+  padding: 4px;
+  border-radius: 4px;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.learning-path-node-btn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.learning-path-node-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Actions */
+.learning-path-actions {
+  padding-top: 16px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.learning-path-celebrate {
+  text-align: center;
+  padding: 16px;
+  background: var(--background-secondary);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.learning-path-celebrate h4 {
+  margin: 0 0 4px 0;
+  font-size: 18px;
+}
+
+.learning-path-celebrate p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.learning-path-continue {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.learning-path-continue a {
+  font-weight: 500;
+}
+
+/* Buttons */
+.learning-path-view button.mod-cta {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.learning-path-view button.mod-warning {
+  background: var(--color-red);
+  color: white;
 }
