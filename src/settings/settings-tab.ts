@@ -10,13 +10,12 @@ import {
   AI_PROVIDERS,
   getModelsByProvider,
 } from '../core/domain';
-import type { EmbeddingProgress } from '../core/application/services';
 
 export class LearningPathSettingTab extends PluginSettingTab {
   plugin: LearningPathGeneratorPlugin;
   private modelDropdown: DropdownComponent | null = null;
-  private progressTextEl: HTMLElement | null = null;
-  private progressFillEl: HTMLElement | null = null;
+  private statsContainer: HTMLElement | null = null;
+  private pollingInterval: number | null = null;
 
   constructor(app: App, plugin: LearningPathGeneratorPlugin) {
     super(app, plugin);
@@ -160,7 +159,7 @@ export class LearningPathSettingTab extends PluginSettingTab {
 
     const aboutEl = containerEl.createDiv({ cls: 'setting-item' });
     aboutEl.createEl('p', {
-      text: 'Learning Path Generator v0.5.5',
+      text: 'Learning Path Generator v0.5.6',
       cls: 'setting-item-description',
     });
     aboutEl.createEl('p', {
@@ -310,8 +309,8 @@ export class LearningPathSettingTab extends PluginSettingTab {
       });
 
     // Embedding stats display
-    const statsContainer = containerEl.createDiv({ cls: 'embedding-stats-container' });
-    this.updateEmbeddingStats(statsContainer);
+    this.statsContainer = containerEl.createDiv({ cls: 'embedding-stats-container' });
+    this.refreshStats();
 
     // Auto-embed toggle
     new Setting(containerEl)
@@ -352,20 +351,19 @@ export class LearningPathSettingTab extends PluginSettingTab {
             button.setDisabled(true);
             button.setButtonText('인덱싱 중...');
 
+            // 폴링 시작 (500ms 간격으로 상태 업데이트)
+            this.startStatsPolling();
+
             try {
-              const count = await this.plugin.reindexAllNotes(
-                (progress: EmbeddingProgress) => {
-                  // 실시간 진행률 업데이트
-                  this.updateProgressDisplay(progress);
-                }
-              );
-              // 완료 후 최종 상태 업데이트
-              this.updateEmbeddingStats(statsContainer);
+              const count = await this.plugin.reindexAllNotes();
               new Notice(`리인덱싱 완료: ${count}개 노트`);
             } catch (error) {
               const message = error instanceof Error ? error.message : '알 수 없는 오류';
               new Notice(`리인덱싱 실패: ${message}`);
             } finally {
+              // 폴링 중지 및 최종 상태 업데이트
+              this.stopStatsPolling();
+              this.refreshStats();
               button.setDisabled(false);
               button.setButtonText('리인덱싱 시작');
             }
@@ -379,12 +377,16 @@ export class LearningPathSettingTab extends PluginSettingTab {
     noteEl.innerHTML = '※ 임베딩은 OpenAI API (text-embedding-3-small)를 사용합니다. 위 임베딩 전용 API 키를 설정하거나, AI 설정에서 OpenAI를 선택하여 API 키를 설정하세요.';
   }
 
-  private async updateEmbeddingStats(container: HTMLElement): Promise<void> {
-    container.empty();
+  /**
+   * 통계 새로고침
+   */
+  private async refreshStats(): Promise<void> {
+    if (!this.statsContainer) return;
 
+    this.statsContainer.empty();
     const stats = await this.plugin.getEmbeddingStats();
 
-    const statsEl = container.createDiv({ cls: 'embedding-stats' });
+    const statsEl = this.statsContainer.createDiv({ cls: 'embedding-stats' });
     statsEl.style.padding = '10px';
     statsEl.style.backgroundColor = 'var(--background-secondary)';
     statsEl.style.borderRadius = '5px';
@@ -402,8 +404,7 @@ export class LearningPathSettingTab extends PluginSettingTab {
       ? Math.round((stats.embeddedNotes / stats.totalNotes) * 100)
       : 0;
 
-    // 진행률 텍스트 (참조 저장)
-    this.progressTextEl = statsEl.createEl('p', {
+    statsEl.createEl('p', {
       text: `📊 임베딩 상태: ${stats.embeddedNotes} / ${stats.totalNotes} 노트 (${percentage}%)`,
     });
 
@@ -416,41 +417,38 @@ export class LearningPathSettingTab extends PluginSettingTab {
     progressContainer.style.overflow = 'hidden';
     progressContainer.style.marginTop = '5px';
 
-    // 진행률 바 (참조 저장)
-    this.progressFillEl = progressContainer.createDiv();
-    this.progressFillEl.style.width = `${percentage}%`;
-    this.progressFillEl.style.height = '100%';
-    this.progressFillEl.style.backgroundColor = percentage === 100
+    const progressFill = progressContainer.createDiv();
+    progressFill.style.width = `${percentage}%`;
+    progressFill.style.height = '100%';
+    progressFill.style.backgroundColor = percentage === 100
       ? 'var(--interactive-success)'
       : 'var(--interactive-accent)';
-    this.progressFillEl.style.transition = 'width 0.3s ease';
   }
 
   /**
-   * 실시간 진행률 업데이트
-   * requestAnimationFrame을 사용하여 DOM 업데이트 강제 적용
+   * 통계 폴링 시작 (500ms 간격)
    */
-  private updateProgressDisplay(progress: EmbeddingProgress): void {
-    if (!this.progressTextEl || !this.progressFillEl) return;
+  private startStatsPolling(): void {
+    this.stopStatsPolling(); // 기존 폴링 중지
+    this.pollingInterval = window.setInterval(() => {
+      this.refreshStats();
+    }, 500);
+  }
 
-    const percentage = progress.total > 0
-      ? Math.round((progress.current / progress.total) * 100)
-      : 0;
+  /**
+   * 통계 폴링 중지
+   */
+  private stopStatsPolling(): void {
+    if (this.pollingInterval !== null) {
+      window.clearInterval(this.pollingInterval);
+      this.pollingInterval = null;
+    }
+  }
 
-    const phaseText = progress.phase === 'preparing' ? '준비 중...'
-      : progress.phase === 'embedding' ? '임베딩 중...'
-      : '완료';
-
-    const textEl = this.progressTextEl;
-    const fillEl = this.progressFillEl;
-
-    // requestAnimationFrame으로 다음 렌더링 프레임에 업데이트
-    requestAnimationFrame(() => {
-      textEl.textContent = `📊 ${phaseText} ${progress.current} / ${progress.total} 노트 (${percentage}%)`;
-      fillEl.style.width = `${percentage}%`;
-      fillEl.style.backgroundColor = percentage === 100
-        ? 'var(--interactive-success)'
-        : 'var(--interactive-accent)';
-    });
+  /**
+   * 탭이 닫힐 때 정리
+   */
+  hide(): void {
+    this.stopStatsPolling();
   }
 }

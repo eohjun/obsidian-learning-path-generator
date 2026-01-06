@@ -33,7 +33,6 @@ import {
   EmbeddingService,
   initializeEmbeddingService,
   destroyEmbeddingService,
-  type EmbeddingProgress,
 } from './core/application/services';
 import { LearningPathView, VIEW_TYPE_LEARNING_PATH } from './ui';
 import {
@@ -472,14 +471,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
 
     new Notice(`임베딩 인덱싱 시작... (${stats.pendingNotes}개 노트)`);
 
-    const count = await this.embeddingService.indexAllNotes(
-      excludeFolders,
-      (progress: EmbeddingProgress) => {
-        if (progress.phase === 'embedding' && progress.current % 50 === 0) {
-          console.log(`[LearningPathGenerator] Indexing progress: ${progress.current}/${progress.total}`);
-        }
-      }
-    );
+    const count = await this.embeddingService.indexAllNotes(excludeFolders);
 
     new Notice(`임베딩 완료: ${count}개 노트 인덱싱됨`);
     console.log(`[LearningPathGenerator] Initial indexing complete: ${count} notes`);
@@ -487,11 +479,8 @@ export default class LearningPathGeneratorPlugin extends Plugin {
 
   /**
    * 수동 리인덱싱 (설정 UI에서 호출)
-   * @param onProgress - 진행 상태 콜백 (UI 업데이트용)
    */
-  async reindexAllNotes(
-    onProgress?: (progress: EmbeddingProgress) => void
-  ): Promise<number> {
+  async reindexAllNotes(): Promise<number> {
     if (!this.embeddingService.isAvailable()) {
       new Notice('OpenAI API 키가 설정되지 않았습니다.');
       return 0;
@@ -503,17 +492,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
     const excludeFolders = this.getEmbeddingExcludeFolders();
     new Notice('전체 노트 리인덱싱 시작...');
 
-    const count = await this.embeddingService.indexAllNotes(
-      excludeFolders,
-      (progress: EmbeddingProgress) => {
-        // UI 콜백 호출
-        onProgress?.(progress);
-
-        if (progress.phase === 'complete') {
-          new Notice(`리인덱싱 완료: ${progress.total}개 노트`);
-        }
-      }
-    );
+    const count = await this.embeddingService.indexAllNotes(excludeFolders);
 
     return count;
   }
