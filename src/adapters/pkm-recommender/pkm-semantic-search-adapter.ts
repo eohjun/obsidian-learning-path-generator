@@ -72,22 +72,25 @@ export class PKMSemanticSearchAdapter implements ISemanticSearchService {
 
   /**
    * 플러그인 로드를 기다리며 재시도
+   * 플러그인 객체뿐만 아니라 임베딩 서비스가 준비될 때까지 대기
    */
   private async waitForPlugin(): Promise<boolean> {
     while (this.discoveryAttempts < this.maxDiscoveryAttempts) {
       const plugin = this.discoverPlugin();
 
-      if (plugin) {
+      // 플러그인이 존재하고 임베딩 서비스가 준비됐는지 확인
+      if (plugin && plugin.isEmbeddingServiceReady()) {
         this.cachedPlugin = plugin;
         this.isInitialized = true;
-        console.log('[PKMSemanticSearchAdapter] PKM plugin discovered successfully');
+        console.log('[PKMSemanticSearchAdapter] PKM plugin discovered and embedding service ready');
         this.notifyStatusChange(true);
         return true;
       }
 
       this.discoveryAttempts++;
+      const status = plugin ? 'plugin found but embedding not ready' : 'plugin not found';
       console.log(
-        `[PKMSemanticSearchAdapter] Attempt ${this.discoveryAttempts}/${this.maxDiscoveryAttempts} - PKM plugin not yet available`
+        `[PKMSemanticSearchAdapter] Attempt ${this.discoveryAttempts}/${this.maxDiscoveryAttempts} - ${status}`
       );
 
       if (this.discoveryAttempts < this.maxDiscoveryAttempts) {
@@ -96,8 +99,16 @@ export class PKMSemanticSearchAdapter implements ISemanticSearchService {
       }
     }
 
-    console.warn('[PKMSemanticSearchAdapter] PKM Note Recommender not found after max attempts');
-    this.isInitialized = true; // 초기화 완료로 표시 (실패했지만)
+    // 최대 시도 후에도 실패하면, 플러그인만이라도 캐시 (나중에 임베딩이 준비될 수 있음)
+    const plugin = this.discoverPlugin();
+    if (plugin) {
+      this.cachedPlugin = plugin;
+      console.warn('[PKMSemanticSearchAdapter] PKM plugin found but embedding service not ready after max attempts');
+    } else {
+      console.warn('[PKMSemanticSearchAdapter] PKM Note Recommender not found after max attempts');
+    }
+
+    this.isInitialized = true;
     this.notifyStatusChange(false);
     return false;
   }
