@@ -40,6 +40,7 @@ import {
   LearningPathSettingTab,
   DEFAULT_SETTINGS,
 } from './settings';
+import { generateNoteId } from './core/domain/utils/note-id';
 
 export default class LearningPathGeneratorPlugin extends Plugin {
   settings!: LearningPathSettings;
@@ -454,7 +455,9 @@ export default class LearningPathGeneratorPlugin extends Plugin {
       return;
     }
 
-    const goalNoteId = activeFile.basename;
+    // Hash-based ID for Vault Embeddings compatibility
+    const goalNoteId = generateNoteId(activeFile.path);
+    const goalNoteName = activeFile.basename;
 
     // Activate view first and clear any existing path
     await this.activateView();
@@ -475,16 +478,16 @@ export default class LearningPathGeneratorPlugin extends Plugin {
       if (existingPath) {
         // Load existing path
         await view.displayPath(existingPath);
-        new Notice(`기존 학습 경로를 불러왔습니다: ${goalNoteId}`);
+        new Notice(`기존 학습 경로를 불러왔습니다: ${goalNoteName}`);
         return;
       }
 
       // No existing path, generate new one
-      new Notice(`'${goalNoteId}' 학습 경로 생성 중...`);
-      await view.showLoadingState(goalNoteId);
+      new Notice(`'${goalNoteName}' 학습 경로 생성 중...`);
+      await view.showLoadingState(goalNoteName);
 
       const response = await this.generatePathUseCase.execute({
-        name: `${goalNoteId}까지의 학습 경로`,
+        name: `${goalNoteName}까지의 학습 경로`,
         goalNoteId,
         excludeFolders: this.settings.excludeFolders,
       });

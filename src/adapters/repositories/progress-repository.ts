@@ -5,6 +5,7 @@
 
 import { App, TFile } from 'obsidian';
 import { IProgressRepository, MasteryLevel, MasteryLevelValue } from '../../core/domain';
+import { generateNoteId } from '../../core/domain/utils/note-id';
 
 export interface ProgressRepositoryConfig {
   /**
@@ -170,11 +171,11 @@ export class ProgressRepository implements IProgressRepository {
   }
 
   /**
-   * noteId로 파일 찾기
+   * noteId(hash)로 파일 찾기 - Vault Embeddings 호환
    */
   private async getFileByNoteId(noteId: string): Promise<TFile | null> {
     const files = this.app.vault.getMarkdownFiles();
-    return files.find((f) => f.basename === noteId) ?? null;
+    return files.find((f) => generateNoteId(f.path) === noteId) ?? null;
   }
 
   /**

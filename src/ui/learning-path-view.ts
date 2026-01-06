@@ -13,6 +13,7 @@ import {
   IPathRepository,
   KnowledgeGapItem,
 } from '../core/domain';
+import { generateNoteId } from '../core/domain/utils/note-id';
 import {
   GenerateLearningPathUseCase,
   UpdateProgressUseCase,
@@ -562,11 +563,11 @@ export class LearningPathView extends ItemView {
 
     // Get active file as goal note
     const activeFile = this.app.workspace.getActiveFile();
-    // Note: NoteData.id uses basename, not full path
-    const goalNoteId = activeFile?.basename;
+    // Hash-based ID for Vault Embeddings compatibility
+    const goalNoteId = activeFile ? generateNoteId(activeFile.path) : undefined;
     const goalNoteName = activeFile?.basename || '새 학습 경로';
 
-    if (!goalNoteId) {
+    if (!goalNoteId || !activeFile) {
       new Notice('활성화된 노트가 없습니다.');
       return;
     }
