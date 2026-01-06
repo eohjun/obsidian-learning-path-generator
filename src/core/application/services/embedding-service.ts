@@ -80,6 +80,38 @@ export class EmbeddingService {
   }
 
   /**
+   * 텍스트 직접 임베딩 (추상화 없이)
+   * main.ts에서 직접 호출용
+   */
+  async embedNoteDirectly(noteId: string, notePath: string, text: string): Promise<boolean> {
+    if (!this.isAvailable()) {
+      return false;
+    }
+
+    try {
+      const vector = await this.embeddingProvider.embed(text);
+
+      if (!vector || vector.length === 0) {
+        console.warn(`[EmbeddingService] Empty vector for: ${noteId}`);
+        return false;
+      }
+
+      const embedding: EmbeddingVector = {
+        noteId,
+        notePath,
+        vector,
+        content: text.slice(0, 500),
+      };
+
+      this.vectorStore.store(embedding);
+      return true;
+    } catch (error) {
+      console.error(`[EmbeddingService] embedNoteDirectly failed for ${noteId}:`, error);
+      return false;
+    }
+  }
+
+  /**
    * 단일 노트 임베딩 생성 및 저장
    *
    * @param noteId - 임베딩할 노트 ID

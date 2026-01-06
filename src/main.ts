@@ -482,7 +482,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
 
   /**
    * 수동 리인덱싱 (설정 UI에서 호출)
-   * @param onProgress - 진행 상황 콜백 (모달에서 사용)
+   * 추상화 없이 직접 vault에서 파일을 가져와서 임베딩
    */
   async reindexAllNotes(
     onProgress?: (current: number, total: number, phase: string) => void
@@ -494,13 +494,69 @@ export default class LearningPathGeneratorPlugin extends Plugin {
     // 기존 임베딩 초기화
     this.embeddingService.clearAllEmbeddings();
 
+    onProgress?.(0, 0, 'preparing');
+
+    // 직접 vault에서 마크다운 파일 가져오기
+    const allFiles = this.app.vault.getMarkdownFiles();
     const excludeFolders = this.getEmbeddingExcludeFolders();
 
-    const count = await this.embeddingService.indexAllNotes(excludeFolders, (progress) => {
-      onProgress?.(progress.current, progress.total, progress.phase);
+    // 제외 폴더 필터링
+    const files = allFiles.filter(file => {
+      return !excludeFolders.some(folder => {
+        const folderPath = folder.endsWith('/') ? folder : `${folder}/`;
+        return file.path.startsWith(folderPath);
+      });
     });
 
-    return count;
+    const total = files.length;
+    console.log(`[LearningPathGenerator] Reindexing ${total} files (excluded ${allFiles.length - total})`);
+
+    if (total === 0) {
+      onProgress?.(0, 0, 'complete');
+      return 0;
+    }
+
+    let successCount = 0;
+    const batchSize = 10;
+
+    for (let i = 0; i < files.length; i += batchSize) {
+      const batch = files.slice(i, i + batchSize);
+
+      for (const file of batch) {
+        try {
+          const content = await this.app.vault.cachedRead(file);
+          const text = `${file.basename}\n\n${content}`.slice(0, 8000);
+
+          // 임베딩 생성 및 저장
+          const success = await this.embeddingService.embedNoteDirectly(
+            file.basename,
+            file.path,
+            text
+          );
+
+          if (success) {
+            successCount++;
+          }
+        } catch (error) {
+          console.error(`[LearningPathGenerator] Failed to embed ${file.basename}:`, error);
+        }
+      }
+
+      // 진행률 업데이트
+      const processed = Math.min(i + batchSize, total);
+      const pct = Math.round((processed / total) * 100);
+      onProgress?.(processed, total, 'embedding');
+
+      // Rate limiting
+      if (i + batchSize < files.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    onProgress?.(successCount, total, 'complete');
+    console.log(`[LearningPathGenerator] Reindex complete: ${successCount}/${total}`);
+
+    return successCount;
   }
 
   /**
