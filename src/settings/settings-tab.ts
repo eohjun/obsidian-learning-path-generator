@@ -20,7 +20,7 @@ export class LearningPathSettingTab extends PluginSettingTab {
     this.plugin = plugin;
   }
 
-  display(): void {
+  async display(): Promise<void> {
     const { containerEl } = this;
     containerEl.empty();
 
@@ -29,8 +29,8 @@ export class LearningPathSettingTab extends PluginSettingTab {
     // AI Settings Section
     this.displayAISettings(containerEl);
 
-    // Embedding Settings Section
-    this.displayEmbeddingSettings(containerEl);
+    // Embedding Settings Section (async - must await)
+    await this.displayEmbeddingSettings(containerEl);
 
     // Storage Settings
     containerEl.createEl('h3', { text: '저장소 설정' });
