@@ -6,7 +6,7 @@
  * 이 클래스는 해당 데이터를 읽어와 유사도 검색만 수행.
  */
 
-import type { App } from 'obsidian';
+import { App, TFile, TFolder } from 'obsidian';
 import type {
   IVectorStore,
   EmbeddingVector,
@@ -15,28 +15,35 @@ import type {
 } from '../../core/domain';
 
 /**
- * Vault Embeddings index.json 구조
+ * Vault Embeddings index.json 구조 (09_Embedded/index.json)
  */
 interface VaultEmbeddingIndex {
   version: string;
-  provider: string;
-  model: string;
-  dimension: number;
-  totalEmbeddings: number;
-  storageSize: number;
+  totalNotes: number;
   lastUpdated: string;
-  files: string[];
+  model: string;
+  dimensions: number;
+  notes: {
+    [noteId: string]: {
+      path: string;
+      contentHash: string;
+      updatedAt: string;
+    };
+  };
 }
 
 /**
- * Vault Embeddings 개별 임베딩 구조
+ * Vault Embeddings 개별 임베딩 파일 구조 (09_Embedded/embeddings/<noteId>.json)
  */
-interface VaultEmbeddingEntry {
+interface SerializedNoteEmbedding {
   noteId: string;
   notePath: string;
-  vector: number[];
+  title: string;
   contentHash: string;
+  vector: number[];
   model: string;
+  provider: string;
+  dimensions: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -96,18 +103,18 @@ export class VaultEmbeddingsVectorStore implements IVectorStore {
    * 임베딩 통계 조회
    */
   async getStats(): Promise<{
+    isAvailable: boolean;
     totalEmbeddings: number;
-    provider: string;
     model: string;
-    storageSize: number;
+    provider: string;
   }> {
     await this.ensureCacheValid();
 
     return {
+      isAvailable: this.isAvailable(),
       totalEmbeddings: this.cache.size,
-      provider: this.indexCache?.provider ?? 'unknown',
       model: this.indexCache?.model ?? 'unknown',
-      storageSize: this.indexCache?.storageSize ?? 0,
+      provider: 'openai', // Vault Embeddings는 OpenAI 사용
     };
   }
 
@@ -145,6 +152,11 @@ export class VaultEmbeddingsVectorStore implements IVectorStore {
 
     for (const [noteId, embedding] of this.cache) {
       if (excludeNoteIds.has(noteId)) {
+        continue;
+      }
+
+      // 차원 불일치 시 스킵
+      if (queryVector.length !== embedding.vector.length) {
         continue;
       }
 
@@ -217,27 +229,41 @@ export class VaultEmbeddingsVectorStore implements IVectorStore {
    * 모든 임베딩 파일 로드
    */
   private async loadAllEmbeddings(): Promise<void> {
-    const basePath = `${this.config.storagePath}/${this.config.embeddingsFolder}`;
-    const indexPath = `${basePath}/index.json`;
+    // 인덱스 파일 경로: 09_Embedded/index.json
+    const indexPath = `${this.config.storagePath}/index.json`;
 
     try {
       // index.json 로드
       const indexFile = this.app.vault.getAbstractFileByPath(indexPath);
-      if (!indexFile) {
+      if (!indexFile || !(indexFile instanceof TFile)) {
         console.warn(`[VaultEmbeddingsVectorStore] Index not found: ${indexPath}`);
         return;
       }
 
-      const indexContent = await this.app.vault.cachedRead(indexFile as any);
+      const indexContent = await this.app.vault.read(indexFile);
       this.indexCache = JSON.parse(indexContent) as VaultEmbeddingIndex;
 
-      // 각 임베딩 파일 로드
+      // 임베딩 폴더 확인
+      const embeddingsPath = `${this.config.storagePath}/${this.config.embeddingsFolder}`;
+      const embeddingsFolder = this.app.vault.getAbstractFileByPath(embeddingsPath);
+
+      if (!embeddingsFolder || !(embeddingsFolder instanceof TFolder)) {
+        console.warn(`[VaultEmbeddingsVectorStore] Embeddings folder not found: ${embeddingsPath}`);
+        return;
+      }
+
+      // 인덱스에 있는 각 노트의 임베딩 파일 로드
       this.cache.clear();
-      for (const fileName of this.indexCache.files) {
-        await this.loadEmbeddingFile(`${basePath}/${fileName}`);
+      for (const noteId of Object.keys(this.indexCache.notes)) {
+        // noteId를 안전한 파일명으로 변환 (Vault Embeddings와 동일한 방식)
+        const safeId = noteId.replace(/[^a-zA-Z0-9-_]/g, '_');
+        const embeddingFilePath = `${embeddingsPath}/${safeId}.json`;
+
+        await this.loadEmbeddingFile(embeddingFilePath, noteId);
       }
 
       this.lastCacheUpdate = Date.now();
+      console.log(`[VaultEmbeddingsVectorStore] Loaded ${this.cache.size} embeddings from Vault Embeddings`);
     } catch (error) {
       console.error('[VaultEmbeddingsVectorStore] Failed to load embeddings:', error);
     }
@@ -246,24 +272,25 @@ export class VaultEmbeddingsVectorStore implements IVectorStore {
   /**
    * 개별 임베딩 파일 로드
    */
-  private async loadEmbeddingFile(filePath: string): Promise<void> {
+  private async loadEmbeddingFile(filePath: string, noteId: string): Promise<void> {
     try {
       const file = this.app.vault.getAbstractFileByPath(filePath);
-      if (!file) return;
-
-      const content = await this.app.vault.cachedRead(file as any);
-      const entries = JSON.parse(content) as VaultEmbeddingEntry[];
-
-      for (const entry of entries) {
-        this.cache.set(entry.noteId, {
-          noteId: entry.noteId,
-          notePath: entry.notePath,
-          vector: entry.vector,
-          content: '', // Vault Embeddings는 content를 저장하지 않음
-        });
+      if (!file || !(file instanceof TFile)) {
+        return;
       }
+
+      const content = await this.app.vault.read(file);
+      const data = JSON.parse(content) as SerializedNoteEmbedding;
+
+      this.cache.set(noteId, {
+        noteId: data.noteId,
+        notePath: data.notePath,
+        vector: data.vector,
+        content: '', // Vault Embeddings는 원본 content를 저장하지 않음
+      });
     } catch (error) {
-      console.error(`[VaultEmbeddingsVectorStore] Failed to load file: ${filePath}`, error);
+      // 개별 파일 로드 실패는 경고만
+      console.warn(`[VaultEmbeddingsVectorStore] Failed to load: ${filePath}`);
     }
   }
 
@@ -272,7 +299,6 @@ export class VaultEmbeddingsVectorStore implements IVectorStore {
    */
   private cosineSimilarity(a: number[], b: number[]): number {
     if (a.length !== b.length) {
-      console.warn('[VaultEmbeddingsVectorStore] Vector dimension mismatch');
       return 0;
     }
 
