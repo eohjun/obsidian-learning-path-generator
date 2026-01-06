@@ -10,6 +10,7 @@ import {
   AI_PROVIDERS,
   getModelsByProvider,
 } from '../core/domain';
+import { ProgressModal } from '../ui';
 
 export class LearningPathSettingTab extends PluginSettingTab {
   plugin: LearningPathGeneratorPlugin;
@@ -157,7 +158,7 @@ export class LearningPathSettingTab extends PluginSettingTab {
 
     const aboutEl = containerEl.createDiv({ cls: 'setting-item' });
     aboutEl.createEl('p', {
-      text: 'Learning Path Generator v0.6.1',
+      text: 'Learning Path Generator v0.6.2',
       cls: 'setting-item-description',
     });
     aboutEl.createEl('p', {
@@ -327,7 +328,7 @@ export class LearningPathSettingTab extends PluginSettingTab {
         text: `📊 임베딩 상태: ${stats.embeddedNotes} / ${stats.totalNotes} 노트 (${percentage}%)`,
       });
       statsEl.createEl('p', {
-        text: '※ 리인덱싱 진행 상황은 화면 우상단 알림으로 표시됩니다.',
+        text: '※ 리인덱싱 버튼을 누르면 진행 상황 창이 표시됩니다.',
         cls: 'setting-item-description',
       });
     }
@@ -362,23 +363,34 @@ export class LearningPathSettingTab extends PluginSettingTab {
     // Re-index button
     new Setting(containerEl)
       .setName('전체 리인덱싱')
-      .setDesc('모든 노트의 임베딩을 다시 생성합니다. 진행 상황은 알림으로 표시됩니다.')
+      .setDesc('모든 노트의 임베딩을 다시 생성합니다.')
       .addButton((button) =>
         button
           .setButtonText('리인덱싱 시작')
           .setWarning()
           .onClick(async () => {
-            button.setDisabled(true);
-            button.setButtonText('진행 중... (알림 확인)');
+            // 모달 생성 및 열기
+            const modal = new ProgressModal(this.app, '임베딩 리인덱싱');
+            modal.open();
 
             try {
-              await this.plugin.reindexAllNotes();
+              const count = await this.plugin.reindexAllNotes((current, total, phase) => {
+                if (phase === 'preparing') {
+                  modal.updateProgress(0, 0, '노트 목록 준비 중...');
+                } else if (phase === 'embedding') {
+                  modal.updateProgress(current, total, '임베딩 생성 중...');
+                } else if (phase === 'complete') {
+                  modal.setComplete(`✅ 완료: ${current}개 노트 임베딩됨`);
+                }
+              });
+
+              // 완료 처리 (콜백에서 complete가 안 왔을 경우 대비)
+              if (count >= 0) {
+                modal.setComplete(`✅ 완료: ${count}개 노트 임베딩됨`);
+              }
             } catch (error) {
               const message = error instanceof Error ? error.message : '알 수 없는 오류';
-              new Notice(`리인덱싱 실패: ${message}`);
-            } finally {
-              button.setDisabled(false);
-              button.setButtonText('리인덱싱 시작');
+              modal.setError(`❌ 실패: ${message}`);
             }
           })
       );

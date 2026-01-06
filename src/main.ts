@@ -492,11 +492,13 @@ export default class LearningPathGeneratorPlugin extends Plugin {
 
   /**
    * 수동 리인덱싱 (설정 UI에서 호출)
+   * @param onProgress - 진행 상황 콜백 (모달에서 사용)
    */
-  async reindexAllNotes(): Promise<number> {
+  async reindexAllNotes(
+    onProgress?: (current: number, total: number, phase: string) => void
+  ): Promise<number> {
     if (!this.embeddingService.isAvailable()) {
-      new Notice('OpenAI API 키가 설정되지 않았습니다.');
-      return 0;
+      throw new Error('OpenAI API 키가 설정되지 않았습니다.');
     }
 
     // 기존 임베딩 초기화
@@ -504,29 +506,9 @@ export default class LearningPathGeneratorPlugin extends Plugin {
 
     const excludeFolders = this.getEmbeddingExcludeFolders();
 
-    // 진행 상황을 표시할 Notice 생성 (0ms = 자동으로 사라지지 않음)
-    const progressNotice = new Notice('📊 임베딩 준비 중...', 0);
-    const noticeEl = progressNotice.noticeEl;
-
-    console.log('[LearningPath] Starting indexAllNotes...');
     const count = await this.embeddingService.indexAllNotes(excludeFolders, (progress) => {
-      console.log('[LearningPath] Progress callback:', progress);
-      // Notice DOM 직접 업데이트
-      if (progress.phase === 'preparing') {
-        noticeEl.setText('📊 노트 목록 준비 중...');
-      } else if (progress.phase === 'embedding') {
-        const percentage = progress.total > 0
-          ? Math.round((progress.current / progress.total) * 100)
-          : 0;
-        noticeEl.setText(`📊 임베딩 중: ${progress.current}/${progress.total} (${percentage}%)`);
-      } else if (progress.phase === 'complete') {
-        noticeEl.setText(`✅ 임베딩 완료: ${progress.current}개 노트`);
-      }
+      onProgress?.(progress.current, progress.total, progress.phase);
     });
-    console.log('[LearningPath] indexAllNotes completed, count:', count);
-
-    // 완료 후 Notice 숨기기 (2초 후)
-    setTimeout(() => progressNotice.hide(), 2000);
 
     return count;
   }
