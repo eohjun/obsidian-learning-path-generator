@@ -158,7 +158,7 @@ export class LearningPathSettingTab extends PluginSettingTab {
 
     const aboutEl = containerEl.createDiv({ cls: 'setting-item' });
     aboutEl.createEl('p', {
-      text: 'Learning Path Generator v0.6.9',
+      text: 'Learning Path Generator v0.6.10',
       cls: 'setting-item-description',
     });
     aboutEl.createEl('p', {
@@ -329,21 +329,6 @@ export class LearningPathSettingTab extends PluginSettingTab {
       statsEl.createEl('p', {
         text: `📊 임베딩 상태: ${stats.embeddedNotes} / ${stats.totalNotes} 노트 (${percentage}%)`,
       });
-
-      // Progress bar 컨테이너
-      const progressContainer = statsEl.createDiv({ cls: 'progress-bar-container' });
-      progressContainer.style.width = '100%';
-      progressContainer.style.height = '8px';
-      progressContainer.style.backgroundColor = 'var(--background-modifier-border)';
-      progressContainer.style.borderRadius = '4px';
-      progressContainer.style.overflow = 'hidden';
-      progressContainer.style.marginTop = '8px';
-
-      // Progress bar fill (정적 상태 표시용)
-      const progressFillEl = progressContainer.createDiv({ cls: 'progress-bar-fill' });
-      progressFillEl.style.width = `${percentage}%`;
-      progressFillEl.style.height = '100%';
-      progressFillEl.style.backgroundColor = 'var(--interactive-accent)';
     }
 
     // Auto-embed toggle
