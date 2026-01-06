@@ -10,6 +10,7 @@ import {
   AI_PROVIDERS,
   getModelsByProvider,
 } from '../core/domain';
+import { ProgressModal } from '../ui';
 
 export class LearningPathSettingTab extends PluginSettingTab {
   plugin: LearningPathGeneratorPlugin;
@@ -157,7 +158,7 @@ export class LearningPathSettingTab extends PluginSettingTab {
 
     const aboutEl = containerEl.createDiv({ cls: 'setting-item' });
     aboutEl.createEl('p', {
-      text: 'Learning Path Generator v0.6.2',
+      text: 'Learning Path Generator v0.6.5',
       cls: 'setting-item-description',
     });
     aboutEl.createEl('p', {
@@ -325,7 +326,7 @@ export class LearningPathSettingTab extends PluginSettingTab {
         : 0;
 
       // 상태 텍스트
-      const statsTextEl = statsEl.createEl('p', {
+      statsEl.createEl('p', {
         text: `📊 임베딩 상태: ${stats.embeddedNotes} / ${stats.totalNotes} 노트 (${percentage}%)`,
       });
 
@@ -338,16 +339,11 @@ export class LearningPathSettingTab extends PluginSettingTab {
       progressContainer.style.overflow = 'hidden';
       progressContainer.style.marginTop = '8px';
 
-      // Progress bar fill
+      // Progress bar fill (정적 상태 표시용)
       const progressFillEl = progressContainer.createDiv({ cls: 'progress-bar-fill' });
       progressFillEl.style.width = `${percentage}%`;
       progressFillEl.style.height = '100%';
       progressFillEl.style.backgroundColor = 'var(--interactive-accent)';
-      progressFillEl.style.transition = 'width 0.3s ease';
-
-      // 리인덱싱 버튼과 진행률 업데이트를 위해 요소 참조 저장
-      (this as any)._statsTextEl = statsTextEl;
-      (this as any)._progressFillEl = progressFillEl;
     }
 
     // Auto-embed toggle
@@ -377,7 +373,7 @@ export class LearningPathSettingTab extends PluginSettingTab {
           })
       );
 
-    // Re-index button with inline progress
+    // Re-index button with ProgressModal (Drive Embedder pattern)
     new Setting(containerEl)
       .setName('전체 리인덱싱')
       .setDesc('모든 노트의 임베딩을 다시 생성합니다.')
@@ -386,46 +382,42 @@ export class LearningPathSettingTab extends PluginSettingTab {
           .setButtonText('리인덱싱 시작')
           .setWarning()
           .onClick(async () => {
-            const statsTextEl = (this as any)._statsTextEl as HTMLElement | undefined;
-            const progressFillEl = (this as any)._progressFillEl as HTMLElement | undefined;
-
-            if (!statsTextEl || !progressFillEl) {
-              new Notice('임베딩 설정이 올바르게 로드되지 않았습니다.');
-              return;
-            }
-
-            button.setDisabled(true);
-            button.setButtonText('인덱싱 중...');
+            // ProgressModal 생성 및 열기 (Drive Embedder 패턴)
+            const modal = new ProgressModal(this.app, '임베딩 리인덱싱');
+            modal.open();
 
             try {
               const count = await this.plugin.reindexAllNotes((current, total, phase) => {
                 if (phase === 'preparing') {
-                  statsTextEl.textContent = '📊 노트 목록 준비 중...';
-                  progressFillEl.style.width = '0%';
+                  modal.updateProgress({
+                    current: 0,
+                    total: 0,
+                    message: '노트 목록 준비 중...',
+                    percentage: 0,
+                  });
                 } else if (phase === 'embedding') {
                   const pct = total > 0 ? Math.round((current / total) * 100) : 0;
-                  statsTextEl.textContent = `📊 임베딩 중: ${current} / ${total} (${pct}%)`;
-                  progressFillEl.style.width = `${pct}%`;
+                  modal.updateProgress({
+                    current,
+                    total,
+                    message: `임베딩 중: ${current} / ${total}`,
+                    percentage: pct,
+                  });
                 } else if (phase === 'complete') {
-                  statsTextEl.textContent = `✅ 완료: ${current}개 노트 임베딩됨`;
-                  progressFillEl.style.width = '100%';
-                  progressFillEl.style.backgroundColor = 'var(--interactive-success)';
+                  modal.setComplete(`✅ 완료: ${current}개 노트 임베딩됨`);
                 }
               });
 
               // 완료 처리
               if (count >= 0) {
-                statsTextEl.textContent = `✅ 완료: ${count}개 노트 임베딩됨`;
-                progressFillEl.style.width = '100%';
-                progressFillEl.style.backgroundColor = 'var(--interactive-success)';
+                modal.setComplete(`✅ 완료: ${count}개 노트 임베딩됨`);
               }
+
+              // 설정 화면 새로고침 (통계 업데이트)
+              this.display();
             } catch (error) {
               const message = error instanceof Error ? error.message : '알 수 없는 오류';
-              statsTextEl.textContent = `❌ 실패: ${message}`;
-              progressFillEl.style.backgroundColor = 'var(--text-error)';
-            } finally {
-              button.setDisabled(false);
-              button.setButtonText('리인덱싱 시작');
+              modal.setError(`❌ 실패: ${message}`);
             }
           })
       );
