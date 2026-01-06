@@ -483,9 +483,11 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   /**
    * 수동 리인덱싱 (설정 UI에서 호출)
    * 추상화 없이 직접 vault에서 파일을 가져와서 임베딩
+   *
+   * @param onProgress - 진행률 콜백 (current, total, phase, errorMsg?)
    */
   async reindexAllNotes(
-    onProgress?: (current: number, total: number, phase: string) => void
+    onProgress?: (current: number, total: number, phase: string, errorMsg?: string) => void
   ): Promise<number> {
     if (!this.embeddingService.isAvailable()) {
       throw new Error('OpenAI API 키가 설정되지 않았습니다.');
@@ -517,6 +519,8 @@ export default class LearningPathGeneratorPlugin extends Plugin {
     }
 
     let successCount = 0;
+    let errorCount = 0;
+    let firstError: string | null = null;
     const batchSize = 10;
 
     for (let i = 0; i < files.length; i += batchSize) {
@@ -536,16 +540,28 @@ export default class LearningPathGeneratorPlugin extends Plugin {
 
           if (success) {
             successCount++;
+          } else {
+            errorCount++;
+            if (!firstError) {
+              firstError = `${file.basename}: 임베딩 실패`;
+            }
           }
         } catch (error) {
+          errorCount++;
+          const errorMsg = error instanceof Error ? error.message : '알 수 없는 오류';
+          if (!firstError) {
+            firstError = `${file.basename}: ${errorMsg}`;
+          }
           console.error(`[LearningPathGenerator] Failed to embed ${file.basename}:`, error);
         }
       }
 
-      // 진행률 업데이트
+      // 진행률 업데이트 (에러 정보 포함)
       const processed = Math.min(i + batchSize, total);
-      const pct = Math.round((processed / total) * 100);
-      onProgress?.(processed, total, 'embedding');
+      const statusMsg = errorCount > 0
+        ? `임베딩 중: ${successCount}/${processed} (실패: ${errorCount})`
+        : `임베딩 중: ${successCount}/${processed}`;
+      onProgress?.(processed, total, 'embedding', statusMsg);
 
       // Rate limiting
       if (i + batchSize < files.length) {
@@ -553,8 +569,16 @@ export default class LearningPathGeneratorPlugin extends Plugin {
       }
     }
 
-    onProgress?.(successCount, total, 'complete');
-    console.log(`[LearningPathGenerator] Reindex complete: ${successCount}/${total}`);
+    // 완료 시 결과 요약
+    const completeMsg = errorCount > 0
+      ? `완료: ${successCount}/${total} (실패: ${errorCount})${firstError ? `\n첫 오류: ${firstError}` : ''}`
+      : `완료: ${successCount}개 노트 임베딩됨`;
+    onProgress?.(successCount, total, 'complete', completeMsg);
+
+    console.log(`[LearningPathGenerator] Reindex complete: ${successCount}/${total}, errors: ${errorCount}`);
+    if (firstError) {
+      console.log(`[LearningPathGenerator] First error: ${firstError}`);
+    }
 
     return successCount;
   }

@@ -158,7 +158,7 @@ export class LearningPathSettingTab extends PluginSettingTab {
 
     const aboutEl = containerEl.createDiv({ cls: 'setting-item' });
     aboutEl.createEl('p', {
-      text: 'Learning Path Generator v0.6.8',
+      text: 'Learning Path Generator v0.6.9',
       cls: 'setting-item-description',
     });
     aboutEl.createEl('p', {
@@ -387,7 +387,7 @@ export class LearningPathSettingTab extends PluginSettingTab {
             modal.open();
 
             try {
-              const count = await this.plugin.reindexAllNotes((current, total, phase) => {
+              const count = await this.plugin.reindexAllNotes((current, total, phase, statusMsg) => {
                 if (phase === 'preparing') {
                   modal.updateProgress({
                     current: 0,
@@ -400,18 +400,19 @@ export class LearningPathSettingTab extends PluginSettingTab {
                   modal.updateProgress({
                     current,
                     total,
-                    message: `임베딩 중: ${current} / ${total}`,
+                    message: statusMsg || `임베딩 중: ${current} / ${total}`,
                     percentage: pct,
                   });
                 } else if (phase === 'complete') {
-                  modal.setComplete(`✅ 완료: ${current}개 노트 임베딩됨`);
+                  // statusMsg에 에러 정보가 포함되어 있으면 사용
+                  const completeMessage = statusMsg || `✅ 완료: ${current}개 노트 임베딩됨`;
+                  if (completeMessage.includes('실패')) {
+                    modal.setError(completeMessage);
+                  } else {
+                    modal.setComplete(`✅ ${completeMessage}`);
+                  }
                 }
               });
-
-              // 완료 처리
-              if (count >= 0) {
-                modal.setComplete(`✅ 완료: ${count}개 노트 임베딩됨`);
-              }
 
               // 설정 화면 새로고침 (통계 업데이트)
               this.display();

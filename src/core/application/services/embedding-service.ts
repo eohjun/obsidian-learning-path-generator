@@ -82,33 +82,36 @@ export class EmbeddingService {
   /**
    * 텍스트 직접 임베딩 (추상화 없이)
    * main.ts에서 직접 호출용
+   *
+   * @throws Error API 호출 실패 시 에러를 던짐 (상위에서 캐치 필요)
    */
   async embedNoteDirectly(noteId: string, notePath: string, text: string): Promise<boolean> {
     if (!this.isAvailable()) {
-      return false;
+      throw new Error('OpenAI API 키가 설정되지 않았습니다');
     }
 
-    try {
-      const vector = await this.embeddingProvider.embed(text);
+    // API 호출 - 에러는 상위로 전파
+    const vector = await this.embeddingProvider.embed(text);
 
-      if (!vector || vector.length === 0) {
-        console.warn(`[EmbeddingService] Empty vector for: ${noteId}`);
-        return false;
-      }
-
-      const embedding: EmbeddingVector = {
-        noteId,
-        notePath,
-        vector,
-        content: text.slice(0, 500),
-      };
-
-      this.vectorStore.store(embedding);
-      return true;
-    } catch (error) {
-      console.error(`[EmbeddingService] embedNoteDirectly failed for ${noteId}:`, error);
-      return false;
+    if (!vector || vector.length === 0) {
+      throw new Error('빈 임베딩 벡터 반환됨');
     }
+
+    const embedding: EmbeddingVector = {
+      noteId,
+      notePath,
+      vector,
+      content: text.slice(0, 500),
+    };
+
+    this.vectorStore.store(embedding);
+
+    // 저장 확인
+    if (!this.vectorStore.has(noteId)) {
+      throw new Error('벡터 저장 실패');
+    }
+
+    return true;
   }
 
   /**

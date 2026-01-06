@@ -73,14 +73,19 @@ export class ProgressModal extends Modal {
     progressBar.style.borderRadius = '10px';
     progressBar.style.overflow = 'hidden';
 
-    // Progress fill (Drive Embedder 패턴: setCssStyles 사용)
+    // Progress fill (왼쪽에서 오른쪽으로)
     this.progressFillEl = progressBar.createDiv({ cls: 'progress-fill' });
     this.progressFillEl.setCssStyles({
       width: '0%',
       height: '100%',
       backgroundColor: 'var(--interactive-accent)',
       transition: 'width 0.3s ease',
+      position: 'absolute',
+      left: '0',
+      top: '0',
     });
+    // 부모에 relative 설정
+    progressBar.style.position = 'relative';
 
     // Percentage text
     this.progressPercentEl = container.createEl('p', { text: '0%' });
