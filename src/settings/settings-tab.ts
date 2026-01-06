@@ -14,10 +14,6 @@ import {
 export class LearningPathSettingTab extends PluginSettingTab {
   plugin: LearningPathGeneratorPlugin;
   private modelDropdown: DropdownComponent | null = null;
-  private statsTextEl: HTMLSpanElement | null = null;
-  private progressFillEl: HTMLDivElement | null = null;
-  private statsContainerEl: HTMLDivElement | null = null;
-  private pollingInterval: number | null = null;
 
   constructor(app: App, plugin: LearningPathGeneratorPlugin) {
     super(app, plugin);
@@ -161,7 +157,7 @@ export class LearningPathSettingTab extends PluginSettingTab {
 
     const aboutEl = containerEl.createDiv({ cls: 'setting-item' });
     aboutEl.createEl('p', {
-      text: 'Learning Path Generator v0.5.9',
+      text: 'Learning Path Generator v0.6.0',
       cls: 'setting-item-description',
     });
     aboutEl.createEl('p', {
@@ -291,7 +287,7 @@ export class LearningPathSettingTab extends PluginSettingTab {
     }
   }
 
-  private displayEmbeddingSettings(containerEl: HTMLElement): void {
+  private async displayEmbeddingSettings(containerEl: HTMLElement): Promise<void> {
     containerEl.createEl('h3', { text: '임베딩 설정 (의미 검색)' });
 
     // OpenAI API Key for embeddings
@@ -310,37 +306,31 @@ export class LearningPathSettingTab extends PluginSettingTab {
         text.inputEl.style.width = '300px';
       });
 
-    // Embedding stats display - 요소를 한 번만 생성하고 참조 저장
-    this.statsContainerEl = containerEl.createDiv({ cls: 'embedding-stats-container' });
-    const statsEl = this.statsContainerEl.createDiv({ cls: 'embedding-stats' });
+    // 임베딩 상태 표시 (정적, 설정창 열 때만 업데이트)
+    const stats = await this.plugin.getEmbeddingStats();
+    const statsEl = containerEl.createDiv({ cls: 'embedding-stats' });
     statsEl.style.padding = '10px';
     statsEl.style.backgroundColor = 'var(--background-secondary)';
     statsEl.style.borderRadius = '5px';
     statsEl.style.marginBottom = '10px';
 
-    // 텍스트 요소 생성
-    const textP = statsEl.createEl('p');
-    textP.createSpan({ text: '📊 임베딩 상태: ' });
-    this.statsTextEl = textP.createSpan({ text: '로딩 중...' });
-
-    // Progress bar 컨테이너
-    const progressContainer = statsEl.createDiv({ cls: 'embedding-progress-bar' });
-    progressContainer.style.width = '100%';
-    progressContainer.style.height = '8px';
-    progressContainer.style.backgroundColor = 'var(--background-modifier-border)';
-    progressContainer.style.borderRadius = '4px';
-    progressContainer.style.overflow = 'hidden';
-    progressContainer.style.marginTop = '5px';
-
-    // Progress bar fill
-    this.progressFillEl = progressContainer.createDiv();
-    this.progressFillEl.style.width = '0%';
-    this.progressFillEl.style.height = '100%';
-    this.progressFillEl.style.backgroundColor = 'var(--interactive-accent)';
-    this.progressFillEl.style.transition = 'width 0.3s ease';
-
-    // 초기 상태 로드
-    this.updateStatsDisplay();
+    if (!stats.isAvailable) {
+      statsEl.createEl('p', {
+        text: '⚠️ OpenAI API 키가 설정되지 않아 임베딩을 사용할 수 없습니다.',
+        cls: 'mod-warning',
+      });
+    } else {
+      const percentage = stats.totalNotes > 0
+        ? Math.round((stats.embeddedNotes / stats.totalNotes) * 100)
+        : 0;
+      statsEl.createEl('p', {
+        text: `📊 임베딩 상태: ${stats.embeddedNotes} / ${stats.totalNotes} 노트 (${percentage}%)`,
+      });
+      statsEl.createEl('p', {
+        text: '※ 리인덱싱 진행 상황은 화면 우상단 알림으로 표시됩니다.',
+        cls: 'setting-item-description',
+      });
+    }
 
     // Auto-embed toggle
     new Setting(containerEl)
@@ -372,28 +362,21 @@ export class LearningPathSettingTab extends PluginSettingTab {
     // Re-index button
     new Setting(containerEl)
       .setName('전체 리인덱싱')
-      .setDesc('모든 노트의 임베딩을 다시 생성합니다. 시간이 걸릴 수 있습니다.')
+      .setDesc('모든 노트의 임베딩을 다시 생성합니다. 진행 상황은 알림으로 표시됩니다.')
       .addButton((button) =>
         button
           .setButtonText('리인덱싱 시작')
           .setWarning()
           .onClick(async () => {
             button.setDisabled(true);
-            button.setButtonText('인덱싱 중...');
-
-            // 폴링 시작 (500ms 간격으로 상태 업데이트)
-            this.startStatsPolling();
+            button.setButtonText('진행 중... (알림 확인)');
 
             try {
-              const count = await this.plugin.reindexAllNotes();
-              new Notice(`리인덱싱 완료: ${count}개 노트`);
+              await this.plugin.reindexAllNotes();
             } catch (error) {
               const message = error instanceof Error ? error.message : '알 수 없는 오류';
               new Notice(`리인덱싱 실패: ${message}`);
             } finally {
-              // 폴링 중지 및 최종 상태 업데이트
-              this.stopStatsPolling();
-              this.updateStatsDisplay();
               button.setDisabled(false);
               button.setButtonText('리인덱싱 시작');
             }
@@ -405,60 +388,5 @@ export class LearningPathSettingTab extends PluginSettingTab {
     noteEl.style.marginTop = '10px';
     noteEl.style.fontStyle = 'italic';
     noteEl.innerHTML = '※ 임베딩은 OpenAI API (text-embedding-3-small)를 사용합니다. 위 임베딩 전용 API 키를 설정하거나, AI 설정에서 OpenAI를 선택하여 API 키를 설정하세요.';
-  }
-
-  /**
-   * 통계 표시 업데이트 - DOM을 다시 생성하지 않고 기존 요소만 업데이트
-   */
-  private async updateStatsDisplay(): Promise<void> {
-    if (!this.statsTextEl || !this.progressFillEl) return;
-
-    const stats = await this.plugin.getEmbeddingStats();
-
-    if (!stats.isAvailable) {
-      this.statsTextEl.textContent = '⚠️ OpenAI API 키가 설정되지 않음';
-      this.progressFillEl.style.width = '0%';
-      return;
-    }
-
-    const percentage = stats.totalNotes > 0
-      ? Math.round((stats.embeddedNotes / stats.totalNotes) * 100)
-      : 0;
-
-    // textContent만 업데이트 (DOM 재생성 없음)
-    this.statsTextEl.textContent = `${stats.embeddedNotes} / ${stats.totalNotes} 노트 (${percentage}%)`;
-
-    // style만 업데이트 (DOM 재생성 없음)
-    this.progressFillEl.style.width = `${percentage}%`;
-    this.progressFillEl.style.backgroundColor = percentage === 100
-      ? 'var(--interactive-success)'
-      : 'var(--interactive-accent)';
-  }
-
-  /**
-   * 통계 폴링 시작 (500ms 간격)
-   */
-  private startStatsPolling(): void {
-    this.stopStatsPolling(); // 기존 폴링 중지
-    this.pollingInterval = window.setInterval(() => {
-      this.updateStatsDisplay();
-    }, 500);
-  }
-
-  /**
-   * 통계 폴링 중지
-   */
-  private stopStatsPolling(): void {
-    if (this.pollingInterval !== null) {
-      window.clearInterval(this.pollingInterval);
-      this.pollingInterval = null;
-    }
-  }
-
-  /**
-   * 탭이 닫힐 때 정리
-   */
-  hide(): void {
-    this.stopStatsPolling();
   }
 }
