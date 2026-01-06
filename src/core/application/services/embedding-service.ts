@@ -375,9 +375,18 @@ export class EmbeddingService {
 
   /**
    * 이벤트 루프에 양보하여 브라우저가 렌더링할 기회 제공
+   * double requestAnimationFrame 패턴 사용:
+   * - 첫 번째 rAF: 다음 repaint 전에 실행
+   * - 두 번째 rAF: 실제 repaint 후에 실행
    */
   private yieldToEventLoop(): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, 0));
+    return new Promise(resolve => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          resolve();
+        });
+      });
+    });
   }
 
   /**

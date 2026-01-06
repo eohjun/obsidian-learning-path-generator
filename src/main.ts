@@ -470,23 +470,10 @@ export default class LearningPathGeneratorPlugin extends Plugin {
       return;
     }
 
-    // 진행 상황을 표시할 Notice 생성 (0ms = 자동으로 사라지지 않음)
-    const progressNotice = new Notice(`📊 시작 시 인덱싱: ${stats.pendingNotes}개 노트`, 0);
-    const noticeEl = progressNotice.noticeEl;
+    console.log(`[LearningPathGenerator] Starting initial indexing: ${stats.pendingNotes} notes`);
 
-    const count = await this.embeddingService.indexAllNotes(excludeFolders, (progress) => {
-      if (progress.phase === 'embedding') {
-        const percentage = progress.total > 0
-          ? Math.round((progress.current / progress.total) * 100)
-          : 0;
-        noticeEl.setText(`📊 시작 시 인덱싱: ${progress.current}/${progress.total} (${percentage}%)`);
-      } else if (progress.phase === 'complete') {
-        noticeEl.setText(`✅ 시작 시 인덱싱 완료: ${progress.current}개 노트`);
-      }
-    });
+    const count = await this.embeddingService.indexAllNotes(excludeFolders);
 
-    // 완료 후 Notice 숨기기 (3초 후)
-    setTimeout(() => progressNotice.hide(), 3000);
     console.log(`[LearningPathGenerator] Initial indexing complete: ${count} notes`);
   }
 
