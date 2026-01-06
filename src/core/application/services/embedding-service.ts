@@ -255,11 +255,17 @@ export class EmbeddingService {
       // 1. 전체 노트 목록 조회
       onProgress?.({ current: 0, total: 0, phase: 'preparing' });
 
+      console.log(`[EmbeddingService] Calling getAllNotes with excludeFolders:`, excludeFolders);
+
       const allNotes = await this.noteRepository.getAllNotes({
         excludeFolders,
       });
 
       const totalNotes = allNotes.length;
+      console.log(`[EmbeddingService] getAllNotes returned ${totalNotes} notes`);
+      if (totalNotes === 0) {
+        console.warn('[EmbeddingService] WARNING: No notes found! Check excludeFolders or vault state.');
+      }
       console.log(`[EmbeddingService] Starting indexing of ${totalNotes} notes`);
 
       // 2. 이미 임베딩된 노트 제외

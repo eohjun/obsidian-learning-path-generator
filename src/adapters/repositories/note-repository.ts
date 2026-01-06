@@ -93,6 +93,7 @@ export class NoteRepository implements INoteRepository {
     excludeFolders?: string[];
   }): Promise<NoteData[]> {
     let files = this.app.vault.getMarkdownFiles();
+    console.log(`[NoteRepository] Total markdown files in vault: ${files.length}`);
 
     // Filter by folder
     if (options?.folder) {
@@ -100,10 +101,12 @@ export class NoteRepository implements INoteRepository {
         ? options.folder
         : `${options.folder}/`;
       files = files.filter((f) => f.path.startsWith(folderPath));
+      console.log(`[NoteRepository] After folder filter (${options.folder}): ${files.length}`);
     }
 
     // Exclude folders
     if (options?.excludeFolders && options.excludeFolders.length > 0) {
+      const beforeCount = files.length;
       files = files.filter((f) => {
         return !options.excludeFolders!.some((excludeFolder) => {
           const excludePath = excludeFolder.endsWith('/')
@@ -112,6 +115,7 @@ export class NoteRepository implements INoteRepository {
           return f.path.startsWith(excludePath);
         });
       });
+      console.log(`[NoteRepository] After excludeFolders filter: ${files.length} (excluded ${beforeCount - files.length})`);
     }
 
     const notes: NoteData[] = [];
@@ -122,6 +126,7 @@ export class NoteRepository implements INoteRepository {
       }
     }
 
+    console.log(`[NoteRepository] Final notes count: ${notes.length}`);
     return notes;
   }
 
