@@ -158,7 +158,7 @@ export class LearningPathSettingTab extends PluginSettingTab {
 
     const aboutEl = containerEl.createDiv({ cls: 'setting-item' });
     aboutEl.createEl('p', {
-      text: 'Learning Path Generator v0.6.5',
+      text: 'Learning Path Generator v0.6.6',
       cls: 'setting-item-description',
     });
     aboutEl.createEl('p', {

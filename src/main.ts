@@ -35,7 +35,7 @@ import {
   destroyEmbeddingService,
   type EmbeddingProgress,
 } from './core/application/services';
-import { LearningPathView, VIEW_TYPE_LEARNING_PATH } from './ui';
+import { LearningPathView, VIEW_TYPE_LEARNING_PATH, ProgressModal } from './ui';
 import {
   LearningPathSettings,
   LearningPathSettingTab,
@@ -455,7 +455,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   }
 
   /**
-   * 초기 인덱싱 실행
+   * 초기 인덱싱 실행 (ProgressModal 표시)
    */
   private async runInitialIndexing(): Promise<void> {
     if (!this.embeddingService.isAvailable()) {
@@ -472,9 +472,39 @@ export default class LearningPathGeneratorPlugin extends Plugin {
 
     console.log(`[LearningPathGenerator] Starting initial indexing: ${stats.pendingNotes} notes`);
 
-    const count = await this.embeddingService.indexAllNotes(excludeFolders);
+    // ProgressModal 표시 (Drive Embedder 패턴)
+    const modal = new ProgressModal(this.app, '임베딩 인덱싱');
+    modal.open();
 
-    console.log(`[LearningPathGenerator] Initial indexing complete: ${count} notes`);
+    try {
+      const count = await this.embeddingService.indexAllNotes(excludeFolders, (progress) => {
+        if (progress.phase === 'preparing') {
+          modal.updateProgress({
+            current: 0,
+            total: 0,
+            message: '노트 목록 준비 중...',
+            percentage: 0,
+          });
+        } else if (progress.phase === 'embedding') {
+          const pct = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
+          modal.updateProgress({
+            current: progress.current,
+            total: progress.total,
+            message: `임베딩 중: ${progress.current} / ${progress.total}`,
+            percentage: pct,
+          });
+        } else if (progress.phase === 'complete') {
+          modal.setComplete(`✅ 완료: ${progress.current}개 노트 임베딩됨`);
+        }
+      });
+
+      console.log(`[LearningPathGenerator] Initial indexing complete: ${count} notes`);
+      modal.setComplete(`✅ 완료: ${count}개 노트 임베딩됨`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '알 수 없는 오류';
+      console.error('[LearningPathGenerator] Initial indexing failed:', error);
+      modal.setError(`❌ 실패: ${message}`);
+    }
   }
 
   /**
