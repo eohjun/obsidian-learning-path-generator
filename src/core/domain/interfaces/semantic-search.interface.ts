@@ -18,22 +18,6 @@ export interface ISemanticSearchService {
   isAvailable(): boolean;
 
   /**
-   * 비동기 초기화 - 외부 서비스 연결 대기
-   * 모바일에서 플러그인 로드 순서가 다를 수 있어 재시도 로직 포함
-   *
-   * @returns 초기화 성공 여부
-   */
-  initialize?(): Promise<boolean>;
-
-  /**
-   * 상태 변경 콜백 등록
-   * 서비스 가용성 변경 시 알림 받기 위함
-   *
-   * @param callback - 상태 변경 시 호출될 콜백
-   */
-  setOnStatusChange?(callback: (available: boolean) => void): void;
-
-  /**
    * 텍스트 내용과 유사한 노트 검색
    *
    * @param content - 검색할 텍스트 내용 (개념, 키워드 등)

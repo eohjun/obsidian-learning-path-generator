@@ -41,82 +41,19 @@ export class PKMSemanticSearchAdapter implements ISemanticSearchService {
   private app: App;
   private cachedPlugin: PKMNoteRecommenderPlugin | null = null;
 
-  // 재시도 설정
-  private discoveryAttempts = 0;
-  private readonly maxDiscoveryAttempts = 5;
-  private readonly baseDiscoveryDelay = 1000; // 1초
-
-  // 초기화 상태
-  private initializationPromise: Promise<boolean> | null = null;
-  private isInitialized = false;
-
-  // 상태 변경 콜백
-  private onStatusChangeCallback?: (available: boolean) => void;
-
   constructor(app: App) {
     this.app = app;
   }
 
   /**
-   * 비동기 초기화 - 플러그인 로드 대기
-   * 모바일에서 플러그인 로드 순서가 다를 수 있어 재시도 로직 포함
+   * PKM Note Recommender 플러그인 참조 가져오기
    */
-  async initialize(): Promise<boolean> {
-    if (this.initializationPromise) {
-      return this.initializationPromise;
+  private getPlugin(): PKMNoteRecommenderPlugin | null {
+    if (this.cachedPlugin) {
+      return this.cachedPlugin;
     }
 
-    this.initializationPromise = this.waitForPlugin();
-    return this.initializationPromise;
-  }
-
-  /**
-   * 플러그인 로드를 기다리며 재시도
-   * 플러그인 객체뿐만 아니라 임베딩 서비스가 준비될 때까지 대기
-   */
-  private async waitForPlugin(): Promise<boolean> {
-    while (this.discoveryAttempts < this.maxDiscoveryAttempts) {
-      const plugin = this.discoverPlugin();
-
-      // 플러그인이 존재하고 임베딩 서비스가 준비됐는지 확인
-      if (plugin && plugin.isEmbeddingServiceReady()) {
-        this.cachedPlugin = plugin;
-        this.isInitialized = true;
-        console.log('[PKMSemanticSearchAdapter] PKM plugin discovered and embedding service ready');
-        this.notifyStatusChange(true);
-        return true;
-      }
-
-      this.discoveryAttempts++;
-      const status = plugin ? 'plugin found but embedding not ready' : 'plugin not found';
-      console.log(
-        `[PKMSemanticSearchAdapter] Attempt ${this.discoveryAttempts}/${this.maxDiscoveryAttempts} - ${status}`
-      );
-
-      if (this.discoveryAttempts < this.maxDiscoveryAttempts) {
-        // 점진적 지연: 1s → 2s → 3s → 4s
-        await this.delay(this.baseDiscoveryDelay * this.discoveryAttempts);
-      }
-    }
-
-    // 최대 시도 후에도 실패하면, 플러그인만이라도 캐시 (나중에 임베딩이 준비될 수 있음)
-    const plugin = this.discoverPlugin();
-    if (plugin) {
-      this.cachedPlugin = plugin;
-      console.warn('[PKMSemanticSearchAdapter] PKM plugin found but embedding service not ready after max attempts');
-    } else {
-      console.warn('[PKMSemanticSearchAdapter] PKM Note Recommender not found after max attempts');
-    }
-
-    this.isInitialized = true;
-    this.notifyStatusChange(false);
-    return false;
-  }
-
-  /**
-   * 플러그인 발견 (즉시 시도)
-   */
-  private discoverPlugin(): PKMNoteRecommenderPlugin | null {
+    // Obsidian의 플러그인 레지스트리에서 PKM Note Recommender 찾기
     const plugins = (this.app as any).plugins?.plugins;
     if (!plugins) {
       return null;
@@ -124,47 +61,8 @@ export class PKMSemanticSearchAdapter implements ISemanticSearchService {
 
     const pkmPlugin = plugins['pkm-note-recommender'] as PKMNoteRecommenderPlugin | undefined;
     if (pkmPlugin && typeof pkmPlugin.getEmbeddingService === 'function') {
+      this.cachedPlugin = pkmPlugin;
       return pkmPlugin;
-    }
-    return null;
-  }
-
-  /**
-   * 지연 실행 유틸리티
-   */
-  private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  /**
-   * 상태 변경 콜백 등록
-   */
-  setOnStatusChange(callback: (available: boolean) => void): void {
-    this.onStatusChangeCallback = callback;
-  }
-
-  /**
-   * 상태 변경 알림
-   */
-  private notifyStatusChange(available: boolean): void {
-    if (this.onStatusChangeCallback) {
-      this.onStatusChangeCallback(available);
-    }
-  }
-
-  /**
-   * PKM Note Recommender 플러그인 참조 가져오기 (캐시 우선)
-   */
-  private getPlugin(): PKMNoteRecommenderPlugin | null {
-    if (this.cachedPlugin) {
-      return this.cachedPlugin;
-    }
-
-    // 초기화가 완료되지 않았어도 한번 더 시도
-    const plugin = this.discoverPlugin();
-    if (plugin) {
-      this.cachedPlugin = plugin;
-      return plugin;
     }
 
     return null;

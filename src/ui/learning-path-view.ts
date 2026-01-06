@@ -27,13 +27,11 @@ export interface LearningPathViewDependencies {
   updateProgressUseCase: UpdateProgressUseCase;
   pathRepository: IPathRepository;
   getMaxDisplayNodes: () => number;
-  isPKMAvailable?: () => boolean;
 }
 
 export class LearningPathView extends ItemView {
   private currentPath: LearningPath | null = null;
   private dependencies: LearningPathViewDependencies | null = null;
-  private pkmStatusEl: HTMLElement | null = null;
 
   constructor(leaf: WorkspaceLeaf) {
     super(leaf);
@@ -41,23 +39,6 @@ export class LearningPathView extends ItemView {
 
   setDependencies(deps: LearningPathViewDependencies): void {
     this.dependencies = deps;
-  }
-
-  /**
-   * PKM 연동 상태 업데이트 (main.ts에서 호출)
-   */
-  updatePKMStatus(available: boolean): void {
-    if (this.pkmStatusEl) {
-      this.pkmStatusEl.setText(available ? '의미 검색' : '링크 기반');
-      this.pkmStatusEl.toggleClass('pkm-active', available);
-      this.pkmStatusEl.toggleClass('pkm-inactive', !available);
-      this.pkmStatusEl.setAttribute(
-        'aria-label',
-        available
-          ? 'PKM Note Recommender 연동됨 - AI 기반 의미 검색 사용'
-          : 'PKM Note Recommender 없음 - 노트 링크 기반 분석 사용'
-      );
-    }
   }
 
   getViewType(): string {
@@ -112,9 +93,6 @@ export class LearningPathView extends ItemView {
    * 빈 상태 렌더링
    */
   private renderEmptyState(container: Element): void {
-    // PKM 상태 표시 바
-    this.renderStatusBar(container);
-
     const emptyEl = container.createDiv({ cls: 'learning-path-empty' });
 
     const iconEl = emptyEl.createDiv({ cls: 'learning-path-empty-icon' });
@@ -133,28 +111,9 @@ export class LearningPathView extends ItemView {
   }
 
   /**
-   * PKM 상태 표시 바 렌더링
-   */
-  private renderStatusBar(container: Element): void {
-    const statusBar = container.createDiv({ cls: 'learning-path-status-bar' });
-
-    // 알고리즘 상태 표시
-    const statusLabel = statusBar.createSpan({ cls: 'learning-path-status-label' });
-    statusLabel.setText('분석 모드:');
-
-    this.pkmStatusEl = statusBar.createSpan({ cls: 'learning-path-status-indicator' });
-
-    const isPKMAvailable = this.dependencies?.isPKMAvailable?.() ?? false;
-    this.updatePKMStatus(isPKMAvailable);
-  }
-
-  /**
    * 학습 경로 렌더링
    */
   private renderPath(container: Element, path: LearningPath): void {
-    // PKM 상태 표시 바
-    this.renderStatusBar(container);
-
     // Header
     const header = container.createDiv({ cls: 'learning-path-header' });
     this.renderHeader(header, path);
