@@ -5,14 +5,15 @@
 
 import { App, TFile, CachedMetadata, getAllTags } from 'obsidian';
 import { INoteRepository, NoteData } from '../../core/domain';
+import { generateNoteId } from '../../core/domain/utils/note-id';
 
 export class NoteRepository implements INoteRepository {
   constructor(private readonly app: App) {}
 
   async getNote(noteId: string): Promise<NoteData | null> {
-    // noteId는 파일 basename (확장자 제외)
+    // noteId는 hash 기반 ID (Vault Embeddings 호환)
     const files = this.app.vault.getMarkdownFiles();
-    const file = files.find((f) => f.basename === noteId);
+    const file = files.find((f) => generateNoteId(f.path) === noteId);
 
     if (!file) {
       return null;
@@ -132,7 +133,7 @@ export class NoteRepository implements INoteRepository {
 
   async exists(noteId: string): Promise<boolean> {
     const files = this.app.vault.getMarkdownFiles();
-    return files.some((f) => f.basename === noteId);
+    return files.some((f) => generateNoteId(f.path) === noteId);
   }
 
   async searchNotes(
@@ -176,7 +177,7 @@ export class NoteRepository implements INoteRepository {
       const cache = this.app.metadataCache.getFileCache(file);
 
       return {
-        id: file.basename,
+        id: generateNoteId(file.path), // Hash-based ID (Vault Embeddings 호환)
         path: file.path,
         basename: file.basename,
         content,
