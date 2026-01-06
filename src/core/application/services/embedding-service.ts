@@ -289,10 +289,18 @@ export class EmbeddingService {
 
           for (let i = 0; i < batch.length; i++) {
             const note = batch[i];
+            const vector = vectors[i];
+
+            // 빈 벡터는 건너뛰기 (빈 텍스트로 인해 임베딩되지 않은 경우)
+            if (!vector || vector.length === 0) {
+              console.warn(`[EmbeddingService] Skipping empty embedding for: ${note.id}`);
+              continue;
+            }
+
             const embedding: EmbeddingVector = {
               noteId: note.id,
               notePath: note.path,
-              vector: vectors[i],
+              vector,
               content: texts[i].slice(0, 500),
             };
             this.vectorStore.store(embedding);
@@ -328,15 +336,23 @@ export class EmbeddingService {
 
   /**
    * 임베딩 통계 조회
+   * 실제 노트와 매칭되는 임베딩만 카운트
    */
   async getStats(excludeFolders?: string[]): Promise<EmbeddingStats> {
     const allNotes = await this.noteRepository.getAllNotes({ excludeFolders });
-    const embeddedCount = this.vectorStore.size();
+
+    // 실제 노트와 매칭되는 임베딩만 카운트
+    let embeddedCount = 0;
+    for (const note of allNotes) {
+      if (this.hasEmbedding(note.id)) {
+        embeddedCount++;
+      }
+    }
 
     return {
       totalNotes: allNotes.length,
       embeddedNotes: embeddedCount,
-      pendingNotes: Math.max(0, allNotes.length - embeddedCount),
+      pendingNotes: allNotes.length - embeddedCount,
       isIndexing: this.isIndexing,
     };
   }

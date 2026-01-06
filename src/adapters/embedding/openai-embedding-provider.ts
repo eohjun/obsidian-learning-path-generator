@@ -79,15 +79,28 @@ export class OpenAIEmbeddingProvider implements IEmbeddingProvider {
 
   /**
    * 여러 텍스트를 배치로 변환
+   * 입력 배열과 동일한 길이의 배열 반환 (빈 텍스트는 빈 벡터)
    */
   async embedBatch(texts: string[]): Promise<number[][]> {
     if (!this.isAvailable()) {
       throw new Error('[OpenAIEmbeddingProvider] API key not configured');
     }
 
-    const cleanedTexts = texts.map(t => this.cleanText(t)).filter(t => t.length > 0);
-    if (cleanedTexts.length === 0) {
-      return [];
+    // 빈 텍스트 인덱스 추적
+    const cleanedTexts = texts.map(t => this.cleanText(t));
+    const nonEmptyIndices: number[] = [];
+    const textsToEmbed: string[] = [];
+
+    for (let i = 0; i < cleanedTexts.length; i++) {
+      if (cleanedTexts[i].length > 0) {
+        nonEmptyIndices.push(i);
+        textsToEmbed.push(cleanedTexts[i]);
+      }
+    }
+
+    if (textsToEmbed.length === 0) {
+      // 모든 텍스트가 빈 경우, 빈 벡터 배열 반환
+      return texts.map(() => []);
     }
 
     try {
@@ -100,7 +113,7 @@ export class OpenAIEmbeddingProvider implements IEmbeddingProvider {
         },
         body: JSON.stringify({
           model: this.model,
-          input: cleanedTexts,
+          input: textsToEmbed,
           dimensions: this.dimensions,
         }),
       });
@@ -111,9 +124,17 @@ export class OpenAIEmbeddingProvider implements IEmbeddingProvider {
 
       const data = response.json;
       // 응답 순서대로 벡터 추출
-      return data.data
+      const embeddings = data.data
         .sort((a: { index: number }, b: { index: number }) => a.index - b.index)
         .map((item: { embedding: number[] }) => item.embedding);
+
+      // 원본 배열과 동일한 길이로 재구성 (빈 텍스트는 빈 벡터)
+      const result: number[][] = texts.map(() => []);
+      for (let i = 0; i < nonEmptyIndices.length; i++) {
+        result[nonEmptyIndices[i]] = embeddings[i];
+      }
+
+      return result;
     } catch (error) {
       console.error('[OpenAIEmbeddingProvider] Batch embedding failed:', error);
       throw error;
