@@ -250,11 +250,13 @@ export class GenerateLearningPathUseCase {
     const conceptNoteMapping = new Map<string, string[]>(); // concept -> noteIds
 
     for (const query of searchQueries) {
+      console.log(`[LearningPath] Searching for concept: "${query}"`);
       const searchResults = await this.semanticSearchService.findSimilarToContent(query, {
         limit: 5,
-        threshold: 0.5,
+        threshold: 0.3,  // Lowered from 0.5 for short concept strings
         excludeNoteIds: [goalNote.id],
       });
+      console.log(`[LearningPath] Results for "${query}": ${searchResults.length} notes found`);
 
       const matchedNoteIds: string[] = [];
       for (const result of searchResults) {
