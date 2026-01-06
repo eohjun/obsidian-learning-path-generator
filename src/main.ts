@@ -193,6 +193,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
         enabled: loaded.ai?.enabled ?? (loaded.useLLMAnalysis ?? defaults.ai.enabled),
       },
       embedding: {
+        openaiApiKey: loaded.embedding?.openaiApiKey ?? defaults.embedding.openaiApiKey,
         autoEmbed: loaded.embedding?.autoEmbed ?? defaults.embedding.autoEmbed,
         indexOnStartup: loaded.embedding?.indexOnStartup ?? defaults.embedding.indexOnStartup,
         excludeFolders: loaded.embedding?.excludeFolders ?? defaults.embedding.excludeFolders,
@@ -324,10 +325,11 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   /**
    * Embedding System 초기화 (Standalone)
    * OpenAI API 키를 사용하여 임베딩 프로바이더 초기화
+   * 임베딩 전용 키 → AI 설정의 OpenAI 키 순으로 사용
    */
   private initializeEmbeddingSystem(): void {
-    // OpenAI API 키 사용 (기존 설정 재활용)
-    const apiKey = this.settings.ai.apiKeys.openai;
+    // 임베딩 전용 API 키 우선, 없으면 AI 설정의 OpenAI 키 사용
+    const apiKey = this.settings.embedding.openaiApiKey || this.settings.ai.apiKeys.openai;
 
     this.embeddingProvider = new OpenAIEmbeddingProvider(apiKey || '');
     this.vectorStore = new InMemoryVectorStore();
@@ -343,7 +345,8 @@ export default class LearningPathGeneratorPlugin extends Plugin {
     if (!apiKey) {
       console.warn('[LearningPathGenerator] OpenAI API key not configured. Semantic search will be disabled.');
     } else {
-      console.log('[LearningPathGenerator] Embedding system initialized with OpenAI');
+      const keySource = this.settings.embedding.openaiApiKey ? 'embedding settings' : 'AI settings';
+      console.log(`[LearningPathGenerator] Embedding system initialized with OpenAI (${keySource})`);
     }
   }
 

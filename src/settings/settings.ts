@@ -16,6 +16,8 @@ export interface LearningPathSettings {
 
   // Embedding Settings (Semantic Search)
   embedding: {
+    /** 임베딩 전용 OpenAI API 키 (설정되지 않으면 AI 설정의 OpenAI 키 사용) */
+    openaiApiKey?: string;
     /** 자동 임베딩 활성화 (노트 생성/수정 시 자동 업데이트) */
     autoEmbed: boolean;
     /** 플러그인 시작 시 전체 인덱싱 */

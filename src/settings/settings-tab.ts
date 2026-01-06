@@ -157,7 +157,7 @@ export class LearningPathSettingTab extends PluginSettingTab {
 
     const aboutEl = containerEl.createDiv({ cls: 'setting-item' });
     aboutEl.createEl('p', {
-      text: 'Learning Path Generator v0.3.0',
+      text: 'Learning Path Generator v0.5.2',
       cls: 'setting-item-description',
     });
     aboutEl.createEl('p', {
@@ -290,6 +290,22 @@ export class LearningPathSettingTab extends PluginSettingTab {
   private displayEmbeddingSettings(containerEl: HTMLElement): void {
     containerEl.createEl('h3', { text: '임베딩 설정 (의미 검색)' });
 
+    // OpenAI API Key for embeddings
+    new Setting(containerEl)
+      .setName('OpenAI API 키 (임베딩 전용)')
+      .setDesc('임베딩에 사용할 OpenAI API 키. 비워두면 AI 설정의 OpenAI 키를 사용합니다.')
+      .addText((text) => {
+        text
+          .setPlaceholder('sk-...')
+          .setValue(this.plugin.settings.embedding.openaiApiKey ?? '')
+          .onChange(async (value) => {
+            this.plugin.settings.embedding.openaiApiKey = value || undefined;
+            await this.plugin.saveSettings();
+          });
+        text.inputEl.type = 'password';
+        text.inputEl.style.width = '300px';
+      });
+
     // Embedding stats display
     const statsContainer = containerEl.createDiv({ cls: 'embedding-stats-container' });
     this.updateEmbeddingStats(statsContainer);
@@ -351,7 +367,7 @@ export class LearningPathSettingTab extends PluginSettingTab {
     const noteEl = containerEl.createDiv({ cls: 'setting-item-description' });
     noteEl.style.marginTop = '10px';
     noteEl.style.fontStyle = 'italic';
-    noteEl.innerHTML = '※ 임베딩은 OpenAI API (text-embedding-3-small)를 사용합니다. AI 설정에서 OpenAI API 키를 설정해주세요.';
+    noteEl.innerHTML = '※ 임베딩은 OpenAI API (text-embedding-3-small)를 사용합니다. 위 임베딩 전용 API 키를 설정하거나, AI 설정에서 OpenAI를 선택하여 API 키를 설정하세요.';
   }
 
   private async updateEmbeddingStats(container: HTMLElement): Promise<void> {
