@@ -494,20 +494,24 @@ export default class LearningPathGeneratorPlugin extends Plugin {
 
     // 진행 상황을 표시할 Notice 생성 (0ms = 자동으로 사라지지 않음)
     const progressNotice = new Notice('📊 임베딩 준비 중...', 0);
+    const noticeEl = progressNotice.noticeEl;
 
+    console.log('[LearningPath] Starting indexAllNotes...');
     const count = await this.embeddingService.indexAllNotes(excludeFolders, (progress) => {
-      // Notice 내용 업데이트
+      console.log('[LearningPath] Progress callback:', progress);
+      // Notice DOM 직접 업데이트
       if (progress.phase === 'preparing') {
-        progressNotice.setMessage('📊 노트 목록 준비 중...');
+        noticeEl.setText('📊 노트 목록 준비 중...');
       } else if (progress.phase === 'embedding') {
         const percentage = progress.total > 0
           ? Math.round((progress.current / progress.total) * 100)
           : 0;
-        progressNotice.setMessage(`📊 임베딩 중: ${progress.current}/${progress.total} (${percentage}%)`);
+        noticeEl.setText(`📊 임베딩 중: ${progress.current}/${progress.total} (${percentage}%)`);
       } else if (progress.phase === 'complete') {
-        progressNotice.setMessage(`✅ 임베딩 완료: ${progress.current}개 노트`);
+        noticeEl.setText(`✅ 임베딩 완료: ${progress.current}개 노트`);
       }
     });
+    console.log('[LearningPath] indexAllNotes completed, count:', count);
 
     // 완료 후 Notice 숨기기 (2초 후)
     setTimeout(() => progressNotice.hide(), 2000);
