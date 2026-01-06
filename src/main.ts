@@ -25,8 +25,15 @@ import {
   OpenAIProvider,
   GeminiProvider,
   GrokProvider,
-  PKMSemanticSearchAdapter,
+  OpenAIEmbeddingProvider,
+  InMemoryVectorStore,
+  StandaloneSemanticSearchAdapter,
 } from './adapters';
+import {
+  EmbeddingService,
+  initializeEmbeddingService,
+  destroyEmbeddingService,
+} from './core/application/services';
 import { LearningPathView, VIEW_TYPE_LEARNING_PATH } from './ui';
 import {
   LearningPathSettings,
@@ -42,7 +49,10 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   private progressRepository!: ProgressRepository;
   private dependencyAnalyzer!: DependencyAnalyzer;
   private aiService!: AIService;
-  private semanticSearchAdapter!: PKMSemanticSearchAdapter;
+  private embeddingProvider!: OpenAIEmbeddingProvider;
+  private vectorStore!: InMemoryVectorStore;
+  private embeddingService!: EmbeddingService;
+  private semanticSearchAdapter!: StandaloneSemanticSearchAdapter;
   private generatePathUseCase!: GenerateLearningPathUseCase;
   private updateProgressUseCase!: UpdateProgressUseCase;
 
@@ -72,8 +82,8 @@ export default class LearningPathGeneratorPlugin extends Plugin {
     // Initialize AI Service
     this.initializeAIService();
 
-    // Initialize PKM Semantic Search Adapter (for PKM Note Recommender integration)
-    this.semanticSearchAdapter = new PKMSemanticSearchAdapter(this.app);
+    // Initialize Embedding System (standalone, no PKM dependency)
+    this.initializeEmbeddingSystem();
 
     // Initialize use cases
     this.generatePathUseCase = new GenerateLearningPathUseCase(
@@ -147,6 +157,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
     console.log('Unloading Learning Path Generator plugin');
     this.app.workspace.detachLeavesOfType(VIEW_TYPE_LEARNING_PATH);
     destroyAIService();
+    destroyEmbeddingService();
   }
 
   /**
@@ -277,6 +288,32 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   }
 
   /**
+   * Embedding System 초기화 (Standalone)
+   * OpenAI API 키를 사용하여 임베딩 프로바이더 초기화
+   */
+  private initializeEmbeddingSystem(): void {
+    // OpenAI API 키 사용 (기존 설정 재활용)
+    const apiKey = this.settings.ai.apiKeys.openai;
+
+    this.embeddingProvider = new OpenAIEmbeddingProvider(apiKey || '');
+    this.vectorStore = new InMemoryVectorStore();
+    this.embeddingService = initializeEmbeddingService(
+      this.embeddingProvider,
+      this.vectorStore,
+      this.noteRepository
+    );
+    this.semanticSearchAdapter = new StandaloneSemanticSearchAdapter(
+      this.embeddingService
+    );
+
+    if (!apiKey) {
+      console.warn('[LearningPathGenerator] OpenAI API key not configured. Semantic search will be disabled.');
+    } else {
+      console.log('[LearningPathGenerator] Embedding system initialized with OpenAI');
+    }
+  }
+
+  /**
    * 설정 변경 시 서비스 재초기화
    */
   private reinitializeServices(): void {
@@ -296,6 +333,10 @@ export default class LearningPathGeneratorPlugin extends Plugin {
       models: this.settings.ai.models,
       enabled: this.settings.ai.enabled,
     });
+
+    // Reinitialize Embedding System (API key might have changed)
+    destroyEmbeddingService();
+    this.initializeEmbeddingSystem();
 
     // Update use cases with new services
     this.generatePathUseCase = new GenerateLearningPathUseCase(

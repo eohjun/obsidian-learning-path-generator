@@ -9,3 +9,11 @@ export {
   destroyAIService,
   type AISettings,
 } from './ai-service';
+
+export {
+  EmbeddingService,
+  initializeEmbeddingService,
+  getEmbeddingService,
+  destroyEmbeddingService,
+  type EmbeddingServiceConfig,
+} from './embedding-service';

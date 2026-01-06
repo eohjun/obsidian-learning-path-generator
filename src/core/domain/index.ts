@@ -39,6 +39,11 @@ export {
   type ConceptExtractionResult,
   type ISemanticSearchService,
   type SemanticSearchResult,
+  type IEmbeddingProvider,
+  type EmbeddingVector,
+  type IVectorStore,
+  type VectorSearchResult,
+  type VectorSearchOptions,
 } from './interfaces';
 
 // Constants

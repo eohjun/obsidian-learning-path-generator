@@ -28,3 +28,14 @@ export {
   type ISemanticSearchService,
   type SemanticSearchResult,
 } from './semantic-search.interface';
+
+export {
+  type IEmbeddingProvider,
+  type EmbeddingVector,
+} from './embedding-provider.interface';
+
+export {
+  type IVectorStore,
+  type VectorSearchResult,
+  type VectorSearchOptions,
+} from './vector-store.interface';

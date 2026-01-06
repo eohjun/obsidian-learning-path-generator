@@ -16,5 +16,9 @@ export {
   GrokProvider,
 } from './llm';
 
-// PKM Note Recommender Integration
-export { PKMSemanticSearchAdapter } from './pkm-recommender';
+// Embedding Adapters (Standalone)
+export {
+  OpenAIEmbeddingProvider,
+  InMemoryVectorStore,
+  StandaloneSemanticSearchAdapter,
+} from './embedding';
