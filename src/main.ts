@@ -180,10 +180,10 @@ export default class LearningPathGeneratorPlugin extends Plugin {
 
     return {
       ai: {
-        provider: loaded.ai?.provider ?? loaded.claudeModel ? 'claude' : defaults.ai.provider,
+        provider: loaded.ai?.provider ?? (loaded.claudeModel ? 'claude' : defaults.ai.provider),
         apiKeys: loaded.ai?.apiKeys ?? (loaded.claudeApiKey ? { claude: loaded.claudeApiKey } : defaults.ai.apiKeys),
         models: loaded.ai?.models ?? (loaded.claudeModel ? { claude: loaded.claudeModel } : defaults.ai.models),
-        enabled: loaded.ai?.enabled ?? loaded.useLLMAnalysis ?? defaults.ai.enabled,
+        enabled: loaded.ai?.enabled ?? (loaded.useLLMAnalysis ?? defaults.ai.enabled),
       },
       storagePath: loaded.storagePath ?? defaults.storagePath,
       masteryLevelKey: loaded.masteryLevelKey ?? defaults.masteryLevelKey,
