@@ -16,7 +16,4 @@ export {
   getEmbeddingService,
   destroyEmbeddingService,
   type EmbeddingServiceConfig,
-  type EmbeddingProgress,
-  type EmbeddingStats,
-  type ProgressCallback,
 } from './embedding-service';

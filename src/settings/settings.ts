@@ -14,16 +14,11 @@ export interface LearningPathSettings {
     enabled: boolean;
   };
 
-  // Embedding Settings (Semantic Search)
+  // Embedding Settings (쿼리 임베딩용)
+  // 노트 임베딩은 Vault Embeddings 플러그인이 담당
   embedding: {
-    /** 임베딩 전용 OpenAI API 키 (설정되지 않으면 AI 설정의 OpenAI 키 사용) */
+    /** 쿼리 임베딩용 OpenAI API 키 (설정되지 않으면 AI 설정의 OpenAI 키 사용) */
     openaiApiKey?: string;
-    /** 자동 임베딩 활성화 (노트 생성/수정 시 자동 업데이트) */
-    autoEmbed: boolean;
-    /** 플러그인 시작 시 전체 인덱싱 */
-    indexOnStartup: boolean;
-    /** 임베딩 제외 폴더 (기본: excludeFolders 사용) */
-    excludeFolders?: string[];
   };
 
   // Storage Settings
@@ -51,9 +46,8 @@ export const DEFAULT_SETTINGS: LearningPathSettings = {
     enabled: true,
   },
   embedding: {
-    autoEmbed: true,
-    indexOnStartup: true,
-    excludeFolders: undefined, // Use general excludeFolders by default
+    // 쿼리 임베딩용 API 키 (OpenAI)
+    // AI 설정의 OpenAI 키가 있으면 그것을 사용
   },
   storagePath: '_learning-paths',
   masteryLevelKey: 'learning_mastery',

@@ -10,7 +10,6 @@ import {
   AI_PROVIDERS,
   getModelsByProvider,
 } from '../core/domain';
-import { ProgressModal } from '../ui';
 
 export class LearningPathSettingTab extends PluginSettingTab {
   plugin: LearningPathGeneratorPlugin;
@@ -158,11 +157,15 @@ export class LearningPathSettingTab extends PluginSettingTab {
 
     const aboutEl = containerEl.createDiv({ cls: 'setting-item' });
     aboutEl.createEl('p', {
-      text: 'Learning Path Generator v0.6.11',
+      text: 'Learning Path Generator v0.7.0',
       cls: 'setting-item-description',
     });
     aboutEl.createEl('p', {
       text: '볼트의 노트들로부터 학습 경로와 커리큘럼을 생성합니다.',
+      cls: 'setting-item-description',
+    });
+    aboutEl.createEl('p', {
+      text: '의미 검색은 Vault Embeddings 플러그인의 임베딩 데이터를 사용합니다.',
       cls: 'setting-item-description',
     });
   }
@@ -289,12 +292,51 @@ export class LearningPathSettingTab extends PluginSettingTab {
   }
 
   private async displayEmbeddingSettings(containerEl: HTMLElement): Promise<void> {
-    containerEl.createEl('h3', { text: '임베딩 설정 (의미 검색)' });
+    containerEl.createEl('h3', { text: '의미 검색 설정' });
 
-    // OpenAI API Key for embeddings
+    // Vault Embeddings integration info
+    const infoEl = containerEl.createDiv({ cls: 'setting-item-description' });
+    infoEl.style.marginBottom = '15px';
+    infoEl.style.padding = '10px';
+    infoEl.style.backgroundColor = 'var(--background-secondary)';
+    infoEl.style.borderRadius = '5px';
+    infoEl.innerHTML = `
+      <p style="margin: 0 0 5px 0;"><strong>📦 Vault Embeddings 연동</strong></p>
+      <p style="margin: 0; font-size: 0.9em;">노트 임베딩은 <strong>Vault Embeddings</strong> 플러그인이 관리합니다.<br>
+      이 플러그인은 저장된 임베딩을 읽어 의미 검색을 수행합니다.</p>
+    `;
+
+    // 임베딩 상태 표시
+    const stats = await this.plugin.getEmbeddingStats();
+    const statsEl = containerEl.createDiv({ cls: 'embedding-stats' });
+    statsEl.style.padding = '10px';
+    statsEl.style.backgroundColor = 'var(--background-secondary)';
+    statsEl.style.borderRadius = '5px';
+    statsEl.style.marginBottom = '15px';
+
+    if (!stats.isAvailable) {
+      statsEl.createEl('p', {
+        text: '⚠️ Vault Embeddings 데이터를 찾을 수 없습니다.',
+        cls: 'mod-warning',
+      });
+      statsEl.createEl('p', {
+        text: 'Vault Embeddings 플러그인을 설치하고 "Embed All Notes"를 실행하세요.',
+        cls: 'setting-item-description',
+      });
+    } else {
+      statsEl.createEl('p', {
+        text: `✅ 임베딩 로드됨: ${stats.totalEmbeddings}개`,
+      });
+      statsEl.createEl('p', {
+        text: `모델: ${stats.model} (${stats.provider})`,
+        cls: 'setting-item-description',
+      });
+    }
+
+    // OpenAI API Key for query embeddings
     new Setting(containerEl)
-      .setName('OpenAI API 키 (임베딩 전용)')
-      .setDesc('임베딩에 사용할 OpenAI API 키. 비워두면 AI 설정의 OpenAI 키를 사용합니다.')
+      .setName('쿼리 임베딩용 OpenAI API 키')
+      .setDesc('검색 쿼리를 임베딩하기 위한 OpenAI API 키. 비워두면 AI 설정의 OpenAI 키를 사용합니다.')
       .addText((text) => {
         text
           .setPlaceholder('sk-...')
@@ -307,111 +349,33 @@ export class LearningPathSettingTab extends PluginSettingTab {
         text.inputEl.style.width = '300px';
       });
 
-    // 임베딩 상태 표시
-    const stats = await this.plugin.getEmbeddingStats();
-    const statsEl = containerEl.createDiv({ cls: 'embedding-stats' });
-    statsEl.style.padding = '10px';
-    statsEl.style.backgroundColor = 'var(--background-secondary)';
-    statsEl.style.borderRadius = '5px';
-    statsEl.style.marginBottom = '10px';
-
-    if (!stats.isAvailable) {
-      statsEl.createEl('p', {
-        text: '⚠️ OpenAI API 키가 설정되지 않아 임베딩을 사용할 수 없습니다.',
-        cls: 'mod-warning',
-      });
-    } else {
-      const percentage = stats.totalNotes > 0
-        ? Math.round((stats.embeddedNotes / stats.totalNotes) * 100)
-        : 0;
-
-      // 상태 텍스트
-      statsEl.createEl('p', {
-        text: `📊 임베딩 상태: ${stats.embeddedNotes} / ${stats.totalNotes} 노트 (${percentage}%)`,
-      });
-    }
-
-    // Auto-embed toggle
+    // Refresh embeddings button
     new Setting(containerEl)
-      .setName('자동 임베딩')
-      .setDesc('노트 생성/수정 시 자동으로 임베딩을 업데이트합니다.')
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.embedding.autoEmbed)
-          .onChange(async (value) => {
-            this.plugin.settings.embedding.autoEmbed = value;
-            await this.plugin.saveSettings();
-            new Notice(value ? '자동 임베딩 활성화 (재시작 필요)' : '자동 임베딩 비활성화');
-          })
-      );
-
-    // Index on startup toggle
-    new Setting(containerEl)
-      .setName('시작 시 인덱싱')
-      .setDesc('플러그인 시작 시 임베딩되지 않은 노트들을 자동으로 인덱싱합니다.')
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.embedding.indexOnStartup)
-          .onChange(async (value) => {
-            this.plugin.settings.embedding.indexOnStartup = value;
-            await this.plugin.saveSettings();
-          })
-      );
-
-    // Re-index button with ProgressModal (Drive Embedder pattern)
-    new Setting(containerEl)
-      .setName('전체 리인덱싱')
-      .setDesc('모든 노트의 임베딩을 다시 생성합니다.')
+      .setName('임베딩 캐시 새로고침')
+      .setDesc('Vault Embeddings에서 최신 임베딩 데이터를 다시 로드합니다.')
       .addButton((button) =>
         button
-          .setButtonText('리인덱싱 시작')
-          .setWarning()
+          .setButtonText('새로고침')
           .onClick(async () => {
-            // ProgressModal 생성 및 열기 (Drive Embedder 패턴)
-            const modal = new ProgressModal(this.app, '임베딩 리인덱싱');
-            modal.open();
-
+            button.setDisabled(true);
+            button.setButtonText('로딩 중...');
             try {
-              const count = await this.plugin.reindexAllNotes((current, total, phase, statusMsg) => {
-                if (phase === 'preparing') {
-                  modal.updateProgress({
-                    current: 0,
-                    total: 0,
-                    message: '노트 목록 준비 중...',
-                    percentage: 0,
-                  });
-                } else if (phase === 'embedding') {
-                  const pct = total > 0 ? Math.round((current / total) * 100) : 0;
-                  modal.updateProgress({
-                    current,
-                    total,
-                    message: statusMsg || `임베딩 중: ${current} / ${total}`,
-                    percentage: pct,
-                  });
-                } else if (phase === 'complete') {
-                  // statusMsg에 에러 정보가 포함되어 있으면 사용
-                  const completeMessage = statusMsg || `✅ 완료: ${current}개 노트 임베딩됨`;
-                  if (completeMessage.includes('실패')) {
-                    modal.setError(completeMessage);
-                  } else {
-                    modal.setComplete(`✅ ${completeMessage}`);
-                  }
-                }
-              });
-
-              // 설정 화면 새로고침 (통계 업데이트)
-              this.display();
+              // Use command to refresh
+              await (this.plugin as any).refreshEmbeddings();
+              await this.display(); // Refresh UI
             } catch (error) {
-              const message = error instanceof Error ? error.message : '알 수 없는 오류';
-              modal.setError(`❌ 실패: ${message}`);
+              new Notice('새로고침 실패');
+            } finally {
+              button.setDisabled(false);
+              button.setButtonText('새로고침');
             }
           })
       );
 
-    // Note about OpenAI API key
+    // Note about embedding workflow
     const noteEl = containerEl.createDiv({ cls: 'setting-item-description' });
     noteEl.style.marginTop = '10px';
     noteEl.style.fontStyle = 'italic';
-    noteEl.innerHTML = '※ 임베딩은 OpenAI API (text-embedding-3-small)를 사용합니다. 위 임베딩 전용 API 키를 설정하거나, AI 설정에서 OpenAI를 선택하여 API 키를 설정하세요.';
+    noteEl.innerHTML = '※ 노트 임베딩 생성/관리는 Vault Embeddings 플러그인 설정에서 수행하세요.';
   }
 }

@@ -2,13 +2,13 @@
  * Learning Path Generator - Obsidian Plugin
  *
  * Generate learning paths and curriculum from your vault notes with AI.
+ * Semantic search uses embeddings from Vault Embeddings plugin.
  */
 
 import { Plugin, WorkspaceLeaf, Notice, TFile, TFolder } from 'obsidian';
 import {
   DependencyAnalyzer,
   AIProviderType,
-  AI_PROVIDERS,
 } from './core/domain';
 import {
   GenerateLearningPathUseCase,
@@ -26,16 +26,15 @@ import {
   GeminiProvider,
   GrokProvider,
   OpenAIEmbeddingProvider,
-  InMemoryVectorStore,
+  VaultEmbeddingsVectorStore,
   StandaloneSemanticSearchAdapter,
 } from './adapters';
 import {
   EmbeddingService,
   initializeEmbeddingService,
   destroyEmbeddingService,
-  type EmbeddingProgress,
 } from './core/application/services';
-import { LearningPathView, VIEW_TYPE_LEARNING_PATH, ProgressModal } from './ui';
+import { LearningPathView, VIEW_TYPE_LEARNING_PATH } from './ui';
 import {
   LearningPathSettings,
   LearningPathSettingTab,
@@ -51,7 +50,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   private dependencyAnalyzer!: DependencyAnalyzer;
   private aiService!: AIService;
   private embeddingProvider!: OpenAIEmbeddingProvider;
-  private vectorStore!: InMemoryVectorStore;
+  private vectorStore!: VaultEmbeddingsVectorStore;
   private embeddingService!: EmbeddingService;
   private semanticSearchAdapter!: StandaloneSemanticSearchAdapter;
   private generatePathUseCase!: GenerateLearningPathUseCase;
@@ -83,8 +82,8 @@ export default class LearningPathGeneratorPlugin extends Plugin {
     // Initialize AI Service
     this.initializeAIService();
 
-    // Initialize Embedding System (standalone, no PKM dependency)
-    this.initializeEmbeddingSystem();
+    // Initialize Embedding System (reads from Vault Embeddings)
+    await this.initializeEmbeddingSystem();
 
     // Initialize use cases
     this.generatePathUseCase = new GenerateLearningPathUseCase(
@@ -143,23 +142,21 @@ export default class LearningPathGeneratorPlugin extends Plugin {
       },
     });
 
+    this.addCommand({
+      id: 'refresh-embeddings',
+      name: '임베딩 캐시 새로고침 (Vault Embeddings)',
+      callback: async () => {
+        await this.refreshEmbeddings();
+      },
+    });
+
     // Add settings tab
     this.addSettingTab(new LearningPathSettingTab(this.app, this));
-
-    // Register vault event listeners for auto-embedding
-    this.registerVaultEventListeners();
 
     // Auto-open view if enabled
     if (this.settings.autoOpenView) {
       this.app.workspace.onLayoutReady(() => {
         this.activateView();
-      });
-    }
-
-    // Initial indexing on startup (if enabled) - 백그라운드에서 조용히 실행
-    if (this.settings.embedding.indexOnStartup && this.embeddingService.isAvailable()) {
-      this.app.workspace.onLayoutReady(() => {
-        this.runInitialIndexingSilent();
       });
     }
   }
@@ -194,9 +191,6 @@ export default class LearningPathGeneratorPlugin extends Plugin {
       },
       embedding: {
         openaiApiKey: loaded.embedding?.openaiApiKey ?? defaults.embedding.openaiApiKey,
-        autoEmbed: loaded.embedding?.autoEmbed ?? defaults.embedding.autoEmbed,
-        indexOnStartup: loaded.embedding?.indexOnStartup ?? defaults.embedding.indexOnStartup,
-        excludeFolders: loaded.embedding?.excludeFolders ?? defaults.embedding.excludeFolders,
       },
       storagePath: loaded.storagePath ?? defaults.storagePath,
       masteryLevelKey: loaded.masteryLevelKey ?? defaults.masteryLevelKey,
@@ -212,17 +206,17 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   /**
    * 임베딩 통계 조회 (설정 UI용)
    */
-  async getEmbeddingStats(): Promise<{ totalNotes: number; embeddedNotes: number; isAvailable: boolean }> {
+  async getEmbeddingStats(): Promise<{ totalEmbeddings: number; provider: string; model: string; isAvailable: boolean }> {
     const isAvailable = this.embeddingService?.isAvailable() ?? false;
     if (!isAvailable) {
-      return { totalNotes: 0, embeddedNotes: 0, isAvailable: false };
+      return { totalEmbeddings: 0, provider: 'N/A', model: 'N/A', isAvailable: false };
     }
 
-    const excludeFolders = this.getEmbeddingExcludeFolders();
-    const stats = await this.embeddingService.getStats(excludeFolders);
+    const stats = await this.vectorStore.getStats();
     return {
-      totalNotes: stats.totalNotes,
-      embeddedNotes: stats.embeddedNotes,
+      totalEmbeddings: stats.totalEmbeddings,
+      provider: stats.provider,
+      model: stats.model,
       isAvailable: true,
     };
   }
@@ -233,11 +227,11 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
     // Reinitialize services with new settings
-    this.reinitializeServices();
+    await this.reinitializeServices();
   }
 
   /**
-   * 저장 경로 마이그레이션 (.learning-paths → _learning-paths)
+   * 저장 경로 마이그레이션 (.learning-paths -> _learning-paths)
    */
   private async migrateStoragePath(): Promise<void> {
     const oldPath = '.learning-paths';
@@ -279,7 +273,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
         const newFilePath = `${newPath}/${file.name}`;
         try {
           await this.app.vault.rename(file, newFilePath);
-          console.log('[Migration] Moved file:', file.path, '→', newFilePath);
+          console.log('[Migration] Moved file:', file.path, '->', newFilePath);
         } catch (error) {
           console.error('[Migration] Failed to move file:', file.path, error);
         }
@@ -323,260 +317,62 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   }
 
   /**
-   * Embedding System 초기화 (Standalone)
-   * OpenAI API 키를 사용하여 임베딩 프로바이더 초기화
-   * 임베딩 전용 키 → AI 설정의 OpenAI 키 순으로 사용
+   * Embedding System 초기화
+   *
+   * 노트 임베딩: Vault Embeddings 플러그인에서 읽기
+   * 쿼리 임베딩: OpenAI API로 생성
    */
-  private initializeEmbeddingSystem(): void {
-    // 임베딩 전용 API 키 우선, 없으면 AI 설정의 OpenAI 키 사용
+  private async initializeEmbeddingSystem(): Promise<void> {
+    // OpenAI API 키 (쿼리 임베딩용)
     const apiKey = this.settings.embedding.openaiApiKey || this.settings.ai.apiKeys.openai;
 
+    // 쿼리 임베딩 프로바이더 (OpenAI)
     this.embeddingProvider = new OpenAIEmbeddingProvider(apiKey || '');
-    this.vectorStore = new InMemoryVectorStore();
+
+    // Vault Embeddings에서 노트 임베딩 읽기
+    this.vectorStore = new VaultEmbeddingsVectorStore(this.app, {
+      storagePath: '09_Embedded',
+      embeddingsFolder: 'embeddings',
+    });
+    await this.vectorStore.initialize();
+
+    // 임베딩 서비스 초기화 (쿼리 임베딩 + 검색)
     this.embeddingService = initializeEmbeddingService(
       this.embeddingProvider,
-      this.vectorStore,
-      this.noteRepository
+      this.vectorStore
     );
+
+    // 시맨틱 검색 어댑터
     this.semanticSearchAdapter = new StandaloneSemanticSearchAdapter(
       this.embeddingService
     );
 
     if (!apiKey) {
-      console.warn('[LearningPathGenerator] OpenAI API key not configured. Semantic search will be disabled.');
+      console.warn('[LearningPathGenerator] OpenAI API key not configured. Semantic search queries will fail.');
     } else {
-      const keySource = this.settings.embedding.openaiApiKey ? 'embedding settings' : 'AI settings';
-      console.log(`[LearningPathGenerator] Embedding system initialized with OpenAI (${keySource})`);
+      const stats = await this.vectorStore.getStats();
+      console.log(`[LearningPathGenerator] Embedding system initialized: ${stats.totalEmbeddings} embeddings from Vault Embeddings`);
     }
   }
 
   /**
-   * Vault 이벤트 리스너 등록 (자동 임베딩)
+   * 임베딩 캐시 새로고침
    */
-  private registerVaultEventListeners(): void {
-    if (!this.settings.embedding.autoEmbed) {
-      console.log('[LearningPathGenerator] Auto-embed disabled');
-      return;
-    }
-
-    const excludeFolders = this.getEmbeddingExcludeFolders();
-
-    // 노트 생성 시
-    this.registerEvent(
-      this.app.vault.on('create', async (file) => {
-        if (!(file instanceof TFile) || file.extension !== 'md') return;
-        if (this.isFileInExcludedFolder(file, excludeFolders)) return;
-        if (!this.embeddingService.isAvailable()) return;
-
-        console.log(`[LearningPathGenerator] New note: ${file.basename}`);
-        await this.embeddingService.embedNote(file.basename);
-      })
-    );
-
-    // 노트 수정 시
-    this.registerEvent(
-      this.app.vault.on('modify', async (file) => {
-        if (!(file instanceof TFile) || file.extension !== 'md') return;
-        if (this.isFileInExcludedFolder(file, excludeFolders)) return;
-        if (!this.embeddingService.isAvailable()) return;
-
-        // Debounce: 빠른 연속 수정 시 마지막만 처리
-        this.debounceEmbedding(file.basename);
-      })
-    );
-
-    // 노트 삭제 시
-    this.registerEvent(
-      this.app.vault.on('delete', (file) => {
-        if (!(file instanceof TFile) || file.extension !== 'md') return;
-        this.embeddingService.removeEmbedding(file.basename);
-        console.log(`[LearningPathGenerator] Removed embedding: ${file.basename}`);
-      })
-    );
-
-    // 노트 이름 변경 시
-    this.registerEvent(
-      this.app.vault.on('rename', async (file, oldPath) => {
-        if (!(file instanceof TFile) || file.extension !== 'md') return;
-
-        // 이전 임베딩 삭제
-        const oldBasename = oldPath.split('/').pop()?.replace('.md', '') || '';
-        this.embeddingService.removeEmbedding(oldBasename);
-
-        // 새 임베딩 생성 (제외 폴더가 아닌 경우)
-        if (!this.isFileInExcludedFolder(file, excludeFolders) && this.embeddingService.isAvailable()) {
-          await this.embeddingService.embedNote(file.basename);
-          console.log(`[LearningPathGenerator] Renamed: ${oldBasename} → ${file.basename}`);
-        }
-      })
-    );
-
-    console.log('[LearningPathGenerator] Vault event listeners registered');
-  }
-
-  /**
-   * 임베딩 제외 폴더 목록 가져오기
-   */
-  private getEmbeddingExcludeFolders(): string[] {
-    return this.settings.embedding.excludeFolders ?? this.settings.excludeFolders;
-  }
-
-  /**
-   * 파일이 제외 폴더에 있는지 확인
-   */
-  private isFileInExcludedFolder(file: TFile, excludeFolders: string[]): boolean {
-    return excludeFolders.some(folder =>
-      file.path.startsWith(folder + '/')
-    );
-  }
-
-  /**
-   * 수정 이벤트 디바운스 (1초)
-   */
-  private modifyDebounceTimers: Map<string, NodeJS.Timeout> = new Map();
-
-  private debounceEmbedding(noteId: string): void {
-    // 기존 타이머 취소
-    const existing = this.modifyDebounceTimers.get(noteId);
-    if (existing) {
-      clearTimeout(existing);
-    }
-
-    // 1초 후 임베딩 업데이트
-    const timer = setTimeout(async () => {
-      this.modifyDebounceTimers.delete(noteId);
-      if (this.embeddingService.isAvailable()) {
-        await this.embeddingService.embedNote(noteId);
-        console.log(`[LearningPathGenerator] Updated embedding: ${noteId}`);
-      }
-    }, 1000);
-
-    this.modifyDebounceTimers.set(noteId, timer);
-  }
-
-  /**
-   * 초기 인덱싱 실행 (백그라운드, 모달 없음)
-   */
-  private async runInitialIndexingSilent(): Promise<void> {
-    if (!this.embeddingService.isAvailable()) {
-      return;
-    }
-
-    const excludeFolders = this.getEmbeddingExcludeFolders();
-    const stats = await this.embeddingService.getStats(excludeFolders);
-
-    if (stats.pendingNotes === 0) {
-      console.log('[LearningPathGenerator] All notes already indexed');
-      return;
-    }
-
-    console.log(`[LearningPathGenerator] Starting background indexing: ${stats.pendingNotes} notes`);
-
+  private async refreshEmbeddings(): Promise<void> {
     try {
-      const count = await this.embeddingService.indexAllNotes(excludeFolders);
-      console.log(`[LearningPathGenerator] Background indexing complete: ${count} notes`);
+      await this.vectorStore.refresh();
+      const stats = await this.vectorStore.getStats();
+      new Notice(`임베딩 새로고침 완료: ${stats.totalEmbeddings}개`);
     } catch (error) {
-      console.error('[LearningPathGenerator] Background indexing failed:', error);
+      console.error('[LearningPathGenerator] Failed to refresh embeddings:', error);
+      new Notice('임베딩 새로고침 실패');
     }
-  }
-
-  /**
-   * 수동 리인덱싱 (설정 UI에서 호출)
-   * 추상화 없이 직접 vault에서 파일을 가져와서 임베딩
-   *
-   * @param onProgress - 진행률 콜백 (current, total, phase, errorMsg?)
-   */
-  async reindexAllNotes(
-    onProgress?: (current: number, total: number, phase: string, errorMsg?: string) => void
-  ): Promise<number> {
-    if (!this.embeddingService.isAvailable()) {
-      throw new Error('OpenAI API 키가 설정되지 않았습니다.');
-    }
-
-    // 기존 임베딩 초기화
-    this.embeddingService.clearAllEmbeddings();
-
-    onProgress?.(0, 0, 'preparing');
-
-    // 직접 vault에서 마크다운 파일 가져오기
-    const allFiles = this.app.vault.getMarkdownFiles();
-    const excludeFolders = this.getEmbeddingExcludeFolders();
-
-    // 제외 폴더 필터링
-    const files = allFiles.filter(file => {
-      return !excludeFolders.some(folder => {
-        const folderPath = folder.endsWith('/') ? folder : `${folder}/`;
-        return file.path.startsWith(folderPath);
-      });
-    });
-
-    const total = files.length;
-    console.log(`[LearningPathGenerator] Reindexing ${total} files (excluded ${allFiles.length - total})`);
-
-    if (total === 0) {
-      onProgress?.(0, 0, 'complete');
-      return 0;
-    }
-
-    let successCount = 0;
-
-    // 첫 번째 파일로 API 연결 테스트 (Fail Fast)
-    const testFile = files[0];
-    try {
-      const testContent = await this.app.vault.cachedRead(testFile);
-      const testText = `${testFile.basename}\n\n${testContent}`.slice(0, 8000);
-
-      await this.embeddingService.embedNoteDirectly(
-        testFile.basename,
-        testFile.path,
-        testText
-      );
-      successCount++;
-      console.log(`[LearningPathGenerator] API test passed: ${testFile.basename}`);
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : '알 수 없는 오류';
-      console.error(`[LearningPathGenerator] API test failed:`, error);
-      // 즉시 에러 표시하고 중단
-      throw new Error(errorMsg);
-    }
-
-    // API 테스트 통과 후 나머지 파일 처리
-    onProgress?.(1, total, 'embedding', `임베딩 중: 1/${total}`);
-
-    for (let i = 1; i < files.length; i++) {
-      const file = files[i];
-      try {
-        const content = await this.app.vault.cachedRead(file);
-        const text = `${file.basename}\n\n${content}`.slice(0, 8000);
-
-        await this.embeddingService.embedNoteDirectly(
-          file.basename,
-          file.path,
-          text
-        );
-        successCount++;
-      } catch (error) {
-        // 개별 파일 실패는 로그만 남기고 계속 진행
-        console.warn(`[LearningPathGenerator] Skipped: ${file.basename}:`, error);
-      }
-
-      // 10개마다 진행률 업데이트
-      if ((i + 1) % 10 === 0 || i === files.length - 1) {
-        onProgress?.(i + 1, total, 'embedding', `임베딩 중: ${successCount}/${i + 1}`);
-        await new Promise(resolve => setTimeout(resolve, 50));
-      }
-    }
-
-    onProgress?.(successCount, total, 'complete', `완료: ${successCount}개 노트 임베딩됨`);
-    console.log(`[LearningPathGenerator] Reindex complete: ${successCount}/${total}`);
-
-    return successCount;
   }
 
   /**
    * 설정 변경 시 서비스 재초기화
    */
-  private reinitializeServices(): void {
+  private async reinitializeServices(): Promise<void> {
     this.pathRepository = new PathRepository(this.app, {
       storagePath: this.settings.storagePath,
     });
@@ -596,7 +392,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
 
     // Reinitialize Embedding System (API key might have changed)
     destroyEmbeddingService();
-    this.initializeEmbeddingSystem();
+    await this.initializeEmbeddingSystem();
 
     // Update use cases with new services
     this.generatePathUseCase = new GenerateLearningPathUseCase(

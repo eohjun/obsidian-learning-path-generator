@@ -16,9 +16,11 @@ export {
   GrokProvider,
 } from './llm';
 
-// Embedding Adapters (Standalone)
+// Embedding Adapters (Vault Embeddings Integration)
 export {
   OpenAIEmbeddingProvider,
   InMemoryVectorStore,
+  VaultEmbeddingsVectorStore,
   StandaloneSemanticSearchAdapter,
+  type VaultEmbeddingsVectorStoreConfig,
 } from './embedding';
