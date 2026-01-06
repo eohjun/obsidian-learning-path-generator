@@ -10,10 +10,13 @@ import {
   AI_PROVIDERS,
   getModelsByProvider,
 } from '../core/domain';
+import type { EmbeddingProgress } from '../core/application/services';
 
 export class LearningPathSettingTab extends PluginSettingTab {
   plugin: LearningPathGeneratorPlugin;
   private modelDropdown: DropdownComponent | null = null;
+  private progressTextEl: HTMLElement | null = null;
+  private progressFillEl: HTMLElement | null = null;
 
   constructor(app: App, plugin: LearningPathGeneratorPlugin) {
     super(app, plugin);
@@ -157,7 +160,7 @@ export class LearningPathSettingTab extends PluginSettingTab {
 
     const aboutEl = containerEl.createDiv({ cls: 'setting-item' });
     aboutEl.createEl('p', {
-      text: 'Learning Path Generator v0.5.3',
+      text: 'Learning Path Generator v0.5.4',
       cls: 'setting-item-description',
     });
     aboutEl.createEl('p', {
@@ -350,7 +353,13 @@ export class LearningPathSettingTab extends PluginSettingTab {
             button.setButtonText('인덱싱 중...');
 
             try {
-              const count = await this.plugin.reindexAllNotes();
+              const count = await this.plugin.reindexAllNotes(
+                (progress: EmbeddingProgress) => {
+                  // 실시간 진행률 업데이트
+                  this.updateProgressDisplay(progress);
+                }
+              );
+              // 완료 후 최종 상태 업데이트
               this.updateEmbeddingStats(statsContainer);
               new Notice(`리인덱싱 완료: ${count}개 노트`);
             } catch (error) {
@@ -393,7 +402,8 @@ export class LearningPathSettingTab extends PluginSettingTab {
       ? Math.round((stats.embeddedNotes / stats.totalNotes) * 100)
       : 0;
 
-    statsEl.createEl('p', {
+    // 진행률 텍스트 (참조 저장)
+    this.progressTextEl = statsEl.createEl('p', {
       text: `📊 임베딩 상태: ${stats.embeddedNotes} / ${stats.totalNotes} 노트 (${percentage}%)`,
     });
 
@@ -406,12 +416,36 @@ export class LearningPathSettingTab extends PluginSettingTab {
     progressContainer.style.overflow = 'hidden';
     progressContainer.style.marginTop = '5px';
 
-    const progressFill = progressContainer.createDiv();
-    progressFill.style.width = `${percentage}%`;
-    progressFill.style.height = '100%';
-    progressFill.style.backgroundColor = percentage === 100
+    // 진행률 바 (참조 저장)
+    this.progressFillEl = progressContainer.createDiv();
+    this.progressFillEl.style.width = `${percentage}%`;
+    this.progressFillEl.style.height = '100%';
+    this.progressFillEl.style.backgroundColor = percentage === 100
       ? 'var(--interactive-success)'
       : 'var(--interactive-accent)';
-    progressFill.style.transition = 'width 0.3s ease';
+    this.progressFillEl.style.transition = 'width 0.3s ease';
+  }
+
+  /**
+   * 실시간 진행률 업데이트
+   */
+  private updateProgressDisplay(progress: EmbeddingProgress): void {
+    if (!this.progressTextEl || !this.progressFillEl) return;
+
+    const percentage = progress.total > 0
+      ? Math.round((progress.current / progress.total) * 100)
+      : 0;
+
+    // 텍스트 업데이트
+    const phaseText = progress.phase === 'preparing' ? '준비 중...'
+      : progress.phase === 'embedding' ? '임베딩 중...'
+      : '완료';
+    this.progressTextEl.textContent = `📊 ${phaseText} ${progress.current} / ${progress.total} 노트 (${percentage}%)`;
+
+    // 진행률 바 업데이트
+    this.progressFillEl.style.width = `${percentage}%`;
+    this.progressFillEl.style.backgroundColor = percentage === 100
+      ? 'var(--interactive-success)'
+      : 'var(--interactive-accent)';
   }
 }
