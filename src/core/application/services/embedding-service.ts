@@ -25,6 +25,30 @@ export interface EmbeddingServiceConfig {
   maxContentLength?: number;
 }
 
+/**
+ * 임베딩 진행 상태
+ */
+export interface EmbeddingProgress {
+  current: number;
+  total: number;
+  phase: 'preparing' | 'embedding' | 'complete';
+}
+
+/**
+ * 임베딩 통계
+ */
+export interface EmbeddingStats {
+  totalNotes: number;
+  embeddedNotes: number;
+  pendingNotes: number;
+  isIndexing: boolean;
+}
+
+/**
+ * 진행 콜백 타입
+ */
+export type ProgressCallback = (progress: EmbeddingProgress) => void;
+
 const DEFAULT_CONFIG: Required<EmbeddingServiceConfig> = {
   batchSize: 10,
   maxContentLength: 8000,
@@ -37,6 +61,7 @@ const DEFAULT_CONFIG: Required<EmbeddingServiceConfig> = {
  */
 export class EmbeddingService {
   private config: Required<EmbeddingServiceConfig>;
+  private isIndexing = false;
 
   constructor(
     private embeddingProvider: IEmbeddingProvider,
@@ -194,6 +219,140 @@ export class EmbeddingService {
    */
   clearAllEmbeddings(): void {
     this.vectorStore.clear();
+  }
+
+  /**
+   * 특정 노트 임베딩 삭제
+   */
+  removeEmbedding(noteId: string): void {
+    this.vectorStore.remove(noteId);
+  }
+
+  /**
+   * 전체 노트 인덱싱
+   *
+   * @param excludeFolders - 제외할 폴더 목록
+   * @param onProgress - 진행 콜백
+   * @returns 임베딩된 노트 수
+   */
+  async indexAllNotes(
+    excludeFolders?: string[],
+    onProgress?: ProgressCallback
+  ): Promise<number> {
+    if (!this.isAvailable()) {
+      console.warn('[EmbeddingService] Provider not available for indexing');
+      return 0;
+    }
+
+    if (this.isIndexing) {
+      console.warn('[EmbeddingService] Already indexing');
+      return 0;
+    }
+
+    this.isIndexing = true;
+
+    try {
+      // 1. 전체 노트 목록 조회
+      onProgress?.({ current: 0, total: 0, phase: 'preparing' });
+
+      const allNotes = await this.noteRepository.getAllNotes({
+        excludeFolders,
+      });
+
+      const totalNotes = allNotes.length;
+      console.log(`[EmbeddingService] Starting indexing of ${totalNotes} notes`);
+
+      // 2. 이미 임베딩된 노트 제외
+      const notesToEmbed = allNotes.filter(note => !this.hasEmbedding(note.id));
+      const toEmbedCount = notesToEmbed.length;
+
+      if (toEmbedCount === 0) {
+        console.log('[EmbeddingService] All notes already embedded');
+        onProgress?.({ current: totalNotes, total: totalNotes, phase: 'complete' });
+        return 0;
+      }
+
+      console.log(`[EmbeddingService] ${toEmbedCount} notes need embedding`);
+
+      // 3. 배치 임베딩
+      let successCount = 0;
+      const batches = this.chunk(notesToEmbed, this.config.batchSize);
+
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batch = batches[batchIndex];
+
+        try {
+          const texts = batch.map(note =>
+            this.prepareTextForEmbedding(note.basename, note.content)
+          );
+          const vectors = await this.embeddingProvider.embedBatch(texts);
+
+          for (let i = 0; i < batch.length; i++) {
+            const note = batch[i];
+            const embedding: EmbeddingVector = {
+              noteId: note.id,
+              notePath: note.path,
+              vector: vectors[i],
+              content: texts[i].slice(0, 500),
+            };
+            this.vectorStore.store(embedding);
+            successCount++;
+          }
+
+          // 진행 상태 업데이트
+          const processed = (batchIndex + 1) * this.config.batchSize;
+          onProgress?.({
+            current: Math.min(processed, toEmbedCount),
+            total: toEmbedCount,
+            phase: 'embedding',
+          });
+        } catch (error) {
+          console.error(`[EmbeddingService] Batch ${batchIndex + 1} failed:`, error);
+          // 실패한 배치는 건너뛰고 계속 진행
+        }
+
+        // Rate limiting: 배치 사이에 짧은 딜레이
+        if (batchIndex < batches.length - 1) {
+          await this.delay(100);
+        }
+      }
+
+      console.log(`[EmbeddingService] Indexing complete: ${successCount}/${toEmbedCount} notes`);
+      onProgress?.({ current: toEmbedCount, total: toEmbedCount, phase: 'complete' });
+
+      return successCount;
+    } finally {
+      this.isIndexing = false;
+    }
+  }
+
+  /**
+   * 임베딩 통계 조회
+   */
+  async getStats(excludeFolders?: string[]): Promise<EmbeddingStats> {
+    const allNotes = await this.noteRepository.getAllNotes({ excludeFolders });
+    const embeddedCount = this.vectorStore.size();
+
+    return {
+      totalNotes: allNotes.length,
+      embeddedNotes: embeddedCount,
+      pendingNotes: Math.max(0, allNotes.length - embeddedCount),
+      isIndexing: this.isIndexing,
+    };
+  }
+
+  /**
+   * 현재 인덱싱 중인지 확인
+   */
+  isCurrentlyIndexing(): boolean {
+    return this.isIndexing;
+  }
+
+  /**
+   * 딜레이 유틸리티
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   /**

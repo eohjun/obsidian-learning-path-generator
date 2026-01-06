@@ -29,6 +29,9 @@ export class LearningPathSettingTab extends PluginSettingTab {
     // AI Settings Section
     this.displayAISettings(containerEl);
 
+    // Embedding Settings Section
+    this.displayEmbeddingSettings(containerEl);
+
     // Storage Settings
     containerEl.createEl('h3', { text: '저장소 설정' });
 
@@ -282,5 +285,117 @@ export class LearningPathSettingTab extends PluginSettingTab {
       default:
         return 'API 키를 입력하세요.';
     }
+  }
+
+  private displayEmbeddingSettings(containerEl: HTMLElement): void {
+    containerEl.createEl('h3', { text: '임베딩 설정 (의미 검색)' });
+
+    // Embedding stats display
+    const statsContainer = containerEl.createDiv({ cls: 'embedding-stats-container' });
+    this.updateEmbeddingStats(statsContainer);
+
+    // Auto-embed toggle
+    new Setting(containerEl)
+      .setName('자동 임베딩')
+      .setDesc('노트 생성/수정 시 자동으로 임베딩을 업데이트합니다.')
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.embedding.autoEmbed)
+          .onChange(async (value) => {
+            this.plugin.settings.embedding.autoEmbed = value;
+            await this.plugin.saveSettings();
+            new Notice(value ? '자동 임베딩 활성화 (재시작 필요)' : '자동 임베딩 비활성화');
+          })
+      );
+
+    // Index on startup toggle
+    new Setting(containerEl)
+      .setName('시작 시 인덱싱')
+      .setDesc('플러그인 시작 시 임베딩되지 않은 노트들을 자동으로 인덱싱합니다.')
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.embedding.indexOnStartup)
+          .onChange(async (value) => {
+            this.plugin.settings.embedding.indexOnStartup = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    // Re-index button
+    new Setting(containerEl)
+      .setName('전체 리인덱싱')
+      .setDesc('모든 노트의 임베딩을 다시 생성합니다. 시간이 걸릴 수 있습니다.')
+      .addButton((button) =>
+        button
+          .setButtonText('리인덱싱 시작')
+          .setWarning()
+          .onClick(async () => {
+            button.setDisabled(true);
+            button.setButtonText('인덱싱 중...');
+
+            try {
+              const count = await this.plugin.reindexAllNotes();
+              this.updateEmbeddingStats(statsContainer);
+              new Notice(`리인덱싱 완료: ${count}개 노트`);
+            } catch (error) {
+              const message = error instanceof Error ? error.message : '알 수 없는 오류';
+              new Notice(`리인덱싱 실패: ${message}`);
+            } finally {
+              button.setDisabled(false);
+              button.setButtonText('리인덱싱 시작');
+            }
+          })
+      );
+
+    // Note about OpenAI API key
+    const noteEl = containerEl.createDiv({ cls: 'setting-item-description' });
+    noteEl.style.marginTop = '10px';
+    noteEl.style.fontStyle = 'italic';
+    noteEl.innerHTML = '※ 임베딩은 OpenAI API (text-embedding-3-small)를 사용합니다. AI 설정에서 OpenAI API 키를 설정해주세요.';
+  }
+
+  private async updateEmbeddingStats(container: HTMLElement): Promise<void> {
+    container.empty();
+
+    const stats = await this.plugin.getEmbeddingStats();
+
+    const statsEl = container.createDiv({ cls: 'embedding-stats' });
+    statsEl.style.padding = '10px';
+    statsEl.style.backgroundColor = 'var(--background-secondary)';
+    statsEl.style.borderRadius = '5px';
+    statsEl.style.marginBottom = '10px';
+
+    if (!stats.isAvailable) {
+      statsEl.createEl('p', {
+        text: '⚠️ OpenAI API 키가 설정되지 않아 임베딩을 사용할 수 없습니다.',
+        cls: 'mod-warning',
+      });
+      return;
+    }
+
+    const percentage = stats.totalNotes > 0
+      ? Math.round((stats.embeddedNotes / stats.totalNotes) * 100)
+      : 0;
+
+    statsEl.createEl('p', {
+      text: `📊 임베딩 상태: ${stats.embeddedNotes} / ${stats.totalNotes} 노트 (${percentage}%)`,
+    });
+
+    // Progress bar
+    const progressContainer = statsEl.createDiv({ cls: 'embedding-progress-bar' });
+    progressContainer.style.width = '100%';
+    progressContainer.style.height = '8px';
+    progressContainer.style.backgroundColor = 'var(--background-modifier-border)';
+    progressContainer.style.borderRadius = '4px';
+    progressContainer.style.overflow = 'hidden';
+    progressContainer.style.marginTop = '5px';
+
+    const progressFill = progressContainer.createDiv();
+    progressFill.style.width = `${percentage}%`;
+    progressFill.style.height = '100%';
+    progressFill.style.backgroundColor = percentage === 100
+      ? 'var(--interactive-success)'
+      : 'var(--interactive-accent)';
+    progressFill.style.transition = 'width 0.3s ease';
   }
 }

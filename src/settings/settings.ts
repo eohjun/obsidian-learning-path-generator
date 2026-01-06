@@ -14,6 +14,16 @@ export interface LearningPathSettings {
     enabled: boolean;
   };
 
+  // Embedding Settings (Semantic Search)
+  embedding: {
+    /** 자동 임베딩 활성화 (노트 생성/수정 시 자동 업데이트) */
+    autoEmbed: boolean;
+    /** 플러그인 시작 시 전체 인덱싱 */
+    indexOnStartup: boolean;
+    /** 임베딩 제외 폴더 (기본: excludeFolders 사용) */
+    excludeFolders?: string[];
+  };
+
   // Storage Settings
   storagePath: string;
 
@@ -37,6 +47,11 @@ export const DEFAULT_SETTINGS: LearningPathSettings = {
     apiKeys: {},
     models: {},
     enabled: true,
+  },
+  embedding: {
+    autoEmbed: true,
+    indexOnStartup: true,
+    excludeFolders: undefined, // Use general excludeFolders by default
   },
   storagePath: '_learning-paths',
   masteryLevelKey: 'learning_mastery',

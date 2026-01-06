@@ -33,6 +33,7 @@ import {
   EmbeddingService,
   initializeEmbeddingService,
   destroyEmbeddingService,
+  type EmbeddingProgress,
 } from './core/application/services';
 import { LearningPathView, VIEW_TYPE_LEARNING_PATH } from './ui';
 import {
@@ -145,10 +146,20 @@ export default class LearningPathGeneratorPlugin extends Plugin {
     // Add settings tab
     this.addSettingTab(new LearningPathSettingTab(this.app, this));
 
+    // Register vault event listeners for auto-embedding
+    this.registerVaultEventListeners();
+
     // Auto-open view if enabled
     if (this.settings.autoOpenView) {
       this.app.workspace.onLayoutReady(() => {
         this.activateView();
+      });
+    }
+
+    // Initial indexing on startup (if enabled)
+    if (this.settings.embedding.indexOnStartup && this.embeddingService.isAvailable()) {
+      this.app.workspace.onLayoutReady(() => {
+        this.runInitialIndexing();
       });
     }
   }
@@ -181,6 +192,11 @@ export default class LearningPathGeneratorPlugin extends Plugin {
         models: loaded.ai?.models ?? (loaded.claudeModel ? { claude: loaded.claudeModel } : defaults.ai.models),
         enabled: loaded.ai?.enabled ?? (loaded.useLLMAnalysis ?? defaults.ai.enabled),
       },
+      embedding: {
+        autoEmbed: loaded.embedding?.autoEmbed ?? defaults.embedding.autoEmbed,
+        indexOnStartup: loaded.embedding?.indexOnStartup ?? defaults.embedding.indexOnStartup,
+        excludeFolders: loaded.embedding?.excludeFolders ?? defaults.embedding.excludeFolders,
+      },
       storagePath: loaded.storagePath ?? defaults.storagePath,
       masteryLevelKey: loaded.masteryLevelKey ?? defaults.masteryLevelKey,
       lastStudiedKey: loaded.lastStudiedKey ?? defaults.lastStudiedKey,
@@ -189,6 +205,24 @@ export default class LearningPathGeneratorPlugin extends Plugin {
       defaultEstimatedMinutes: loaded.defaultEstimatedMinutes ?? defaults.defaultEstimatedMinutes,
       autoOpenView: loaded.autoOpenView ?? defaults.autoOpenView,
       maxDisplayNodes: loaded.maxDisplayNodes ?? defaults.maxDisplayNodes,
+    };
+  }
+
+  /**
+   * 임베딩 통계 조회 (설정 UI용)
+   */
+  async getEmbeddingStats(): Promise<{ totalNotes: number; embeddedNotes: number; isAvailable: boolean }> {
+    const isAvailable = this.embeddingService?.isAvailable() ?? false;
+    if (!isAvailable) {
+      return { totalNotes: 0, embeddedNotes: 0, isAvailable: false };
+    }
+
+    const excludeFolders = this.getEmbeddingExcludeFolders();
+    const stats = await this.embeddingService.getStats(excludeFolders);
+    return {
+      totalNotes: stats.totalNotes,
+      embeddedNotes: stats.embeddedNotes,
+      isAvailable: true,
     };
   }
 
@@ -311,6 +345,168 @@ export default class LearningPathGeneratorPlugin extends Plugin {
     } else {
       console.log('[LearningPathGenerator] Embedding system initialized with OpenAI');
     }
+  }
+
+  /**
+   * Vault 이벤트 리스너 등록 (자동 임베딩)
+   */
+  private registerVaultEventListeners(): void {
+    if (!this.settings.embedding.autoEmbed) {
+      console.log('[LearningPathGenerator] Auto-embed disabled');
+      return;
+    }
+
+    const excludeFolders = this.getEmbeddingExcludeFolders();
+
+    // 노트 생성 시
+    this.registerEvent(
+      this.app.vault.on('create', async (file) => {
+        if (!(file instanceof TFile) || file.extension !== 'md') return;
+        if (this.isFileInExcludedFolder(file, excludeFolders)) return;
+        if (!this.embeddingService.isAvailable()) return;
+
+        console.log(`[LearningPathGenerator] New note: ${file.basename}`);
+        await this.embeddingService.embedNote(file.basename);
+      })
+    );
+
+    // 노트 수정 시
+    this.registerEvent(
+      this.app.vault.on('modify', async (file) => {
+        if (!(file instanceof TFile) || file.extension !== 'md') return;
+        if (this.isFileInExcludedFolder(file, excludeFolders)) return;
+        if (!this.embeddingService.isAvailable()) return;
+
+        // Debounce: 빠른 연속 수정 시 마지막만 처리
+        this.debounceEmbedding(file.basename);
+      })
+    );
+
+    // 노트 삭제 시
+    this.registerEvent(
+      this.app.vault.on('delete', (file) => {
+        if (!(file instanceof TFile) || file.extension !== 'md') return;
+        this.embeddingService.removeEmbedding(file.basename);
+        console.log(`[LearningPathGenerator] Removed embedding: ${file.basename}`);
+      })
+    );
+
+    // 노트 이름 변경 시
+    this.registerEvent(
+      this.app.vault.on('rename', async (file, oldPath) => {
+        if (!(file instanceof TFile) || file.extension !== 'md') return;
+
+        // 이전 임베딩 삭제
+        const oldBasename = oldPath.split('/').pop()?.replace('.md', '') || '';
+        this.embeddingService.removeEmbedding(oldBasename);
+
+        // 새 임베딩 생성 (제외 폴더가 아닌 경우)
+        if (!this.isFileInExcludedFolder(file, excludeFolders) && this.embeddingService.isAvailable()) {
+          await this.embeddingService.embedNote(file.basename);
+          console.log(`[LearningPathGenerator] Renamed: ${oldBasename} → ${file.basename}`);
+        }
+      })
+    );
+
+    console.log('[LearningPathGenerator] Vault event listeners registered');
+  }
+
+  /**
+   * 임베딩 제외 폴더 목록 가져오기
+   */
+  private getEmbeddingExcludeFolders(): string[] {
+    return this.settings.embedding.excludeFolders ?? this.settings.excludeFolders;
+  }
+
+  /**
+   * 파일이 제외 폴더에 있는지 확인
+   */
+  private isFileInExcludedFolder(file: TFile, excludeFolders: string[]): boolean {
+    return excludeFolders.some(folder =>
+      file.path.startsWith(folder + '/')
+    );
+  }
+
+  /**
+   * 수정 이벤트 디바운스 (1초)
+   */
+  private modifyDebounceTimers: Map<string, NodeJS.Timeout> = new Map();
+
+  private debounceEmbedding(noteId: string): void {
+    // 기존 타이머 취소
+    const existing = this.modifyDebounceTimers.get(noteId);
+    if (existing) {
+      clearTimeout(existing);
+    }
+
+    // 1초 후 임베딩 업데이트
+    const timer = setTimeout(async () => {
+      this.modifyDebounceTimers.delete(noteId);
+      if (this.embeddingService.isAvailable()) {
+        await this.embeddingService.embedNote(noteId);
+        console.log(`[LearningPathGenerator] Updated embedding: ${noteId}`);
+      }
+    }, 1000);
+
+    this.modifyDebounceTimers.set(noteId, timer);
+  }
+
+  /**
+   * 초기 인덱싱 실행
+   */
+  private async runInitialIndexing(): Promise<void> {
+    if (!this.embeddingService.isAvailable()) {
+      return;
+    }
+
+    const excludeFolders = this.getEmbeddingExcludeFolders();
+    const stats = await this.embeddingService.getStats(excludeFolders);
+
+    if (stats.pendingNotes === 0) {
+      console.log('[LearningPathGenerator] All notes already indexed');
+      return;
+    }
+
+    new Notice(`임베딩 인덱싱 시작... (${stats.pendingNotes}개 노트)`);
+
+    const count = await this.embeddingService.indexAllNotes(
+      excludeFolders,
+      (progress: EmbeddingProgress) => {
+        if (progress.phase === 'embedding' && progress.current % 50 === 0) {
+          console.log(`[LearningPathGenerator] Indexing progress: ${progress.current}/${progress.total}`);
+        }
+      }
+    );
+
+    new Notice(`임베딩 완료: ${count}개 노트 인덱싱됨`);
+    console.log(`[LearningPathGenerator] Initial indexing complete: ${count} notes`);
+  }
+
+  /**
+   * 수동 리인덱싱 (설정 UI에서 호출)
+   */
+  async reindexAllNotes(): Promise<number> {
+    if (!this.embeddingService.isAvailable()) {
+      new Notice('OpenAI API 키가 설정되지 않았습니다.');
+      return 0;
+    }
+
+    // 기존 임베딩 초기화
+    this.embeddingService.clearAllEmbeddings();
+
+    const excludeFolders = this.getEmbeddingExcludeFolders();
+    new Notice('전체 노트 리인덱싱 시작...');
+
+    const count = await this.embeddingService.indexAllNotes(
+      excludeFolders,
+      (progress: EmbeddingProgress) => {
+        if (progress.phase === 'complete') {
+          new Notice(`리인덱싱 완료: ${progress.total}개 노트`);
+        }
+      }
+    );
+
+    return count;
   }
 
   /**
