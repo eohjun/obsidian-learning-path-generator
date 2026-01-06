@@ -160,7 +160,7 @@ export class LearningPathSettingTab extends PluginSettingTab {
 
     const aboutEl = containerEl.createDiv({ cls: 'setting-item' });
     aboutEl.createEl('p', {
-      text: 'Learning Path Generator v0.5.4',
+      text: 'Learning Path Generator v0.5.5',
       cls: 'setting-item-description',
     });
     aboutEl.createEl('p', {
@@ -428,6 +428,7 @@ export class LearningPathSettingTab extends PluginSettingTab {
 
   /**
    * 실시간 진행률 업데이트
+   * requestAnimationFrame을 사용하여 DOM 업데이트 강제 적용
    */
   private updateProgressDisplay(progress: EmbeddingProgress): void {
     if (!this.progressTextEl || !this.progressFillEl) return;
@@ -436,16 +437,20 @@ export class LearningPathSettingTab extends PluginSettingTab {
       ? Math.round((progress.current / progress.total) * 100)
       : 0;
 
-    // 텍스트 업데이트
     const phaseText = progress.phase === 'preparing' ? '준비 중...'
       : progress.phase === 'embedding' ? '임베딩 중...'
       : '완료';
-    this.progressTextEl.textContent = `📊 ${phaseText} ${progress.current} / ${progress.total} 노트 (${percentage}%)`;
 
-    // 진행률 바 업데이트
-    this.progressFillEl.style.width = `${percentage}%`;
-    this.progressFillEl.style.backgroundColor = percentage === 100
-      ? 'var(--interactive-success)'
-      : 'var(--interactive-accent)';
+    const textEl = this.progressTextEl;
+    const fillEl = this.progressFillEl;
+
+    // requestAnimationFrame으로 다음 렌더링 프레임에 업데이트
+    requestAnimationFrame(() => {
+      textEl.textContent = `📊 ${phaseText} ${progress.current} / ${progress.total} 노트 (${percentage}%)`;
+      fillEl.style.width = `${percentage}%`;
+      fillEl.style.backgroundColor = percentage === 100
+        ? 'var(--interactive-success)'
+        : 'var(--interactive-accent)';
+    });
   }
 }

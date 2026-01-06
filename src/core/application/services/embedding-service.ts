@@ -319,9 +319,11 @@ export class EmbeddingService {
           // 실패한 배치는 건너뛰고 계속 진행
         }
 
-        // Rate limiting: 배치 사이에 짧은 딜레이
+        // Rate limiting + UI 리페인트를 위한 딜레이
+        // setTimeout(0)으로 이벤트 루프에 양보하여 브라우저가 DOM 업데이트를 렌더링할 기회 제공
+        await this.yieldToEventLoop();
         if (batchIndex < batches.length - 1) {
-          await this.delay(100);
+          await this.delay(50);
         }
       }
 
@@ -369,6 +371,13 @@ export class EmbeddingService {
    */
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * 이벤트 루프에 양보하여 브라우저가 렌더링할 기회 제공
+   */
+  private yieldToEventLoop(): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, 0));
   }
 
   /**
