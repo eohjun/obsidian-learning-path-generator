@@ -46,6 +46,9 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   private generatePathUseCase!: GenerateLearningPathUseCase;
   private updateProgressUseCase!: UpdateProgressUseCase;
 
+  // PKM Note Recommender 연동 상태
+  private pkmIntegrationAvailable = false;
+
   async onload(): Promise<void> {
     console.log('Loading Learning Path Generator plugin');
 
@@ -73,7 +76,14 @@ export default class LearningPathGeneratorPlugin extends Plugin {
     this.initializeAIService();
 
     // Initialize PKM Semantic Search Adapter (for PKM Note Recommender integration)
+    // 실제 초기화는 onLayoutReady 이후 지연 실행됨
     this.semanticSearchAdapter = new PKMSemanticSearchAdapter(this.app);
+
+    // PKM 상태 변경 콜백 등록
+    this.semanticSearchAdapter.setOnStatusChange((available) => {
+      this.pkmIntegrationAvailable = available;
+      this.updatePKMStatusInViews();
+    });
 
     // Initialize use cases
     this.generatePathUseCase = new GenerateLearningPathUseCase(
@@ -99,6 +109,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
         updateProgressUseCase: this.updateProgressUseCase,
         pathRepository: this.pathRepository,
         getMaxDisplayNodes: () => this.settings.maxDisplayNodes,
+        isPKMAvailable: () => this.pkmIntegrationAvailable,
       });
       return view;
     });
@@ -135,12 +146,16 @@ export default class LearningPathGeneratorPlugin extends Plugin {
     // Add settings tab
     this.addSettingTab(new LearningPathSettingTab(this.app, this));
 
-    // Auto-open view if enabled
-    if (this.settings.autoOpenView) {
-      this.app.workspace.onLayoutReady(() => {
+    // workspace가 준비되면 PKM 초기화 및 auto-open 수행
+    this.app.workspace.onLayoutReady(() => {
+      // PKM Note Recommender 연동 초기화 (모바일 호환성을 위한 지연 실행)
+      this.initializePKMIntegration();
+
+      // Auto-open view if enabled
+      if (this.settings.autoOpenView) {
         this.activateView();
-      });
-    }
+      }
+    });
   }
 
   onunload(): void {
@@ -256,6 +271,37 @@ export default class LearningPathGeneratorPlugin extends Plugin {
     await this.saveData(this.settings);
     console.log('[Migration] Migration complete. storagePath updated to', newPath);
     new Notice('학습 경로 저장 폴더가 마이그레이션되었습니다.');
+  }
+
+  /**
+   * PKM Note Recommender 연동 초기화 (지연 실행)
+   * 모바일에서 플러그인 로드 순서가 다를 수 있어 재시도 로직 포함
+   */
+  private async initializePKMIntegration(): Promise<void> {
+    console.log('[LearningPath] Starting PKM integration initialization...');
+
+    const success = await this.semanticSearchAdapter.initialize();
+
+    if (success) {
+      console.log('[LearningPath] PKM integration ready - semantic search enabled');
+      new Notice('PKM Note Recommender 연동 완료', 3000);
+    } else {
+      console.log('[LearningPath] PKM integration not available - using link-based algorithm');
+      new Notice('PKM Note Recommender를 찾을 수 없습니다. 링크 기반 분석을 사용합니다.', 5000);
+    }
+  }
+
+  /**
+   * 열린 View들의 PKM 상태 업데이트
+   */
+  private updatePKMStatusInViews(): void {
+    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_LEARNING_PATH);
+    for (const leaf of leaves) {
+      const view = leaf.view as LearningPathView;
+      if (view.updatePKMStatus) {
+        view.updatePKMStatus(this.pkmIntegrationAvailable);
+      }
+    }
   }
 
   /**

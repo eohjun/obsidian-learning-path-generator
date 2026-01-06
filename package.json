@@ -1,6 +1,6 @@
 {
   "name": "obsidian-learning-path-generator",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Generate learning paths and curriculum from your vault notes with AI",
   "main": "main.js",
   "scripts": {
