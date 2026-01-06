@@ -66,14 +66,27 @@ export class OpenAIEmbeddingProvider implements IEmbeddingProvider {
       });
 
       if (response.status !== 200) {
-        throw new Error(`OpenAI API error: ${response.status}`);
+        // 에러 응답 내용 확인
+        const errorBody = response.text || 'No response body';
+        console.error('[OpenAIEmbeddingProvider] API error response:', errorBody);
+        throw new Error(`OpenAI API error ${response.status}: ${errorBody.slice(0, 200)}`);
+      }
+
+      // JSON 파싱 전 응답 확인
+      if (!response.text || response.text.length === 0) {
+        throw new Error('OpenAI API returned empty response');
       }
 
       const data = response.json;
+      if (!data?.data?.[0]?.embedding) {
+        throw new Error(`Invalid API response structure: ${JSON.stringify(data).slice(0, 200)}`);
+      }
+
       return data.data[0].embedding;
     } catch (error) {
-      console.error('[OpenAIEmbeddingProvider] Embedding failed:', error);
-      throw error;
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('[OpenAIEmbeddingProvider] Embedding failed:', message);
+      throw new Error(`임베딩 실패: ${message}`);
     }
   }
 

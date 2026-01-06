@@ -519,66 +519,56 @@ export default class LearningPathGeneratorPlugin extends Plugin {
     }
 
     let successCount = 0;
-    let errorCount = 0;
-    let firstError: string | null = null;
-    const batchSize = 10;
 
-    for (let i = 0; i < files.length; i += batchSize) {
-      const batch = files.slice(i, i + batchSize);
+    // 첫 번째 파일로 API 연결 테스트 (Fail Fast)
+    const testFile = files[0];
+    try {
+      const testContent = await this.app.vault.cachedRead(testFile);
+      const testText = `${testFile.basename}\n\n${testContent}`.slice(0, 8000);
 
-      for (const file of batch) {
-        try {
-          const content = await this.app.vault.cachedRead(file);
-          const text = `${file.basename}\n\n${content}`.slice(0, 8000);
+      await this.embeddingService.embedNoteDirectly(
+        testFile.basename,
+        testFile.path,
+        testText
+      );
+      successCount++;
+      console.log(`[LearningPathGenerator] API test passed: ${testFile.basename}`);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : '알 수 없는 오류';
+      console.error(`[LearningPathGenerator] API test failed:`, error);
+      // 즉시 에러 표시하고 중단
+      throw new Error(errorMsg);
+    }
 
-          // 임베딩 생성 및 저장
-          const success = await this.embeddingService.embedNoteDirectly(
-            file.basename,
-            file.path,
-            text
-          );
+    // API 테스트 통과 후 나머지 파일 처리
+    onProgress?.(1, total, 'embedding', `임베딩 중: 1/${total}`);
 
-          if (success) {
-            successCount++;
-          } else {
-            errorCount++;
-            if (!firstError) {
-              firstError = `${file.basename}: 임베딩 실패`;
-            }
-          }
-        } catch (error) {
-          errorCount++;
-          const errorMsg = error instanceof Error ? error.message : '알 수 없는 오류';
-          if (!firstError) {
-            firstError = `${file.basename}: ${errorMsg}`;
-          }
-          console.error(`[LearningPathGenerator] Failed to embed ${file.basename}:`, error);
-        }
+    for (let i = 1; i < files.length; i++) {
+      const file = files[i];
+      try {
+        const content = await this.app.vault.cachedRead(file);
+        const text = `${file.basename}\n\n${content}`.slice(0, 8000);
+
+        await this.embeddingService.embedNoteDirectly(
+          file.basename,
+          file.path,
+          text
+        );
+        successCount++;
+      } catch (error) {
+        // 개별 파일 실패는 로그만 남기고 계속 진행
+        console.warn(`[LearningPathGenerator] Skipped: ${file.basename}:`, error);
       }
 
-      // 진행률 업데이트 (에러 정보 포함)
-      const processed = Math.min(i + batchSize, total);
-      const statusMsg = errorCount > 0
-        ? `임베딩 중: ${successCount}/${processed} (실패: ${errorCount})`
-        : `임베딩 중: ${successCount}/${processed}`;
-      onProgress?.(processed, total, 'embedding', statusMsg);
-
-      // Rate limiting
-      if (i + batchSize < files.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+      // 10개마다 진행률 업데이트
+      if ((i + 1) % 10 === 0 || i === files.length - 1) {
+        onProgress?.(i + 1, total, 'embedding', `임베딩 중: ${successCount}/${i + 1}`);
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
     }
 
-    // 완료 시 결과 요약
-    const completeMsg = errorCount > 0
-      ? `완료: ${successCount}/${total} (실패: ${errorCount})${firstError ? `\n첫 오류: ${firstError}` : ''}`
-      : `완료: ${successCount}개 노트 임베딩됨`;
-    onProgress?.(successCount, total, 'complete', completeMsg);
-
-    console.log(`[LearningPathGenerator] Reindex complete: ${successCount}/${total}, errors: ${errorCount}`);
-    if (firstError) {
-      console.log(`[LearningPathGenerator] First error: ${firstError}`);
-    }
+    onProgress?.(successCount, total, 'complete', `완료: ${successCount}개 노트 임베딩됨`);
+    console.log(`[LearningPathGenerator] Reindex complete: ${successCount}/${total}`);
 
     return successCount;
   }
