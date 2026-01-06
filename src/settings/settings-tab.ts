@@ -14,7 +14,9 @@ import {
 export class LearningPathSettingTab extends PluginSettingTab {
   plugin: LearningPathGeneratorPlugin;
   private modelDropdown: DropdownComponent | null = null;
-  private statsContainer: HTMLElement | null = null;
+  private statsTextEl: HTMLSpanElement | null = null;
+  private progressFillEl: HTMLDivElement | null = null;
+  private statsContainerEl: HTMLDivElement | null = null;
   private pollingInterval: number | null = null;
 
   constructor(app: App, plugin: LearningPathGeneratorPlugin) {
@@ -159,7 +161,7 @@ export class LearningPathSettingTab extends PluginSettingTab {
 
     const aboutEl = containerEl.createDiv({ cls: 'setting-item' });
     aboutEl.createEl('p', {
-      text: 'Learning Path Generator v0.5.6',
+      text: 'Learning Path Generator v0.5.7',
       cls: 'setting-item-description',
     });
     aboutEl.createEl('p', {
@@ -308,9 +310,37 @@ export class LearningPathSettingTab extends PluginSettingTab {
         text.inputEl.style.width = '300px';
       });
 
-    // Embedding stats display
-    this.statsContainer = containerEl.createDiv({ cls: 'embedding-stats-container' });
-    this.refreshStats();
+    // Embedding stats display - 요소를 한 번만 생성하고 참조 저장
+    this.statsContainerEl = containerEl.createDiv({ cls: 'embedding-stats-container' });
+    const statsEl = this.statsContainerEl.createDiv({ cls: 'embedding-stats' });
+    statsEl.style.padding = '10px';
+    statsEl.style.backgroundColor = 'var(--background-secondary)';
+    statsEl.style.borderRadius = '5px';
+    statsEl.style.marginBottom = '10px';
+
+    // 텍스트 요소 생성
+    const textP = statsEl.createEl('p');
+    textP.createSpan({ text: '📊 임베딩 상태: ' });
+    this.statsTextEl = textP.createSpan({ text: '로딩 중...' });
+
+    // Progress bar 컨테이너
+    const progressContainer = statsEl.createDiv({ cls: 'embedding-progress-bar' });
+    progressContainer.style.width = '100%';
+    progressContainer.style.height = '8px';
+    progressContainer.style.backgroundColor = 'var(--background-modifier-border)';
+    progressContainer.style.borderRadius = '4px';
+    progressContainer.style.overflow = 'hidden';
+    progressContainer.style.marginTop = '5px';
+
+    // Progress bar fill
+    this.progressFillEl = progressContainer.createDiv();
+    this.progressFillEl.style.width = '0%';
+    this.progressFillEl.style.height = '100%';
+    this.progressFillEl.style.backgroundColor = 'var(--interactive-accent)';
+    this.progressFillEl.style.transition = 'width 0.3s ease';
+
+    // 초기 상태 로드
+    this.updateStatsDisplay();
 
     // Auto-embed toggle
     new Setting(containerEl)
@@ -363,7 +393,7 @@ export class LearningPathSettingTab extends PluginSettingTab {
             } finally {
               // 폴링 중지 및 최종 상태 업데이트
               this.stopStatsPolling();
-              this.refreshStats();
+              this.updateStatsDisplay();
               button.setDisabled(false);
               button.setButtonText('리인덱싱 시작');
             }
@@ -378,25 +408,16 @@ export class LearningPathSettingTab extends PluginSettingTab {
   }
 
   /**
-   * 통계 새로고침
+   * 통계 표시 업데이트 - DOM을 다시 생성하지 않고 기존 요소만 업데이트
    */
-  private async refreshStats(): Promise<void> {
-    if (!this.statsContainer) return;
+  private async updateStatsDisplay(): Promise<void> {
+    if (!this.statsTextEl || !this.progressFillEl) return;
 
-    this.statsContainer.empty();
     const stats = await this.plugin.getEmbeddingStats();
 
-    const statsEl = this.statsContainer.createDiv({ cls: 'embedding-stats' });
-    statsEl.style.padding = '10px';
-    statsEl.style.backgroundColor = 'var(--background-secondary)';
-    statsEl.style.borderRadius = '5px';
-    statsEl.style.marginBottom = '10px';
-
     if (!stats.isAvailable) {
-      statsEl.createEl('p', {
-        text: '⚠️ OpenAI API 키가 설정되지 않아 임베딩을 사용할 수 없습니다.',
-        cls: 'mod-warning',
-      });
+      this.statsTextEl.textContent = '⚠️ OpenAI API 키가 설정되지 않음';
+      this.progressFillEl.style.width = '0%';
       return;
     }
 
@@ -404,23 +425,12 @@ export class LearningPathSettingTab extends PluginSettingTab {
       ? Math.round((stats.embeddedNotes / stats.totalNotes) * 100)
       : 0;
 
-    statsEl.createEl('p', {
-      text: `📊 임베딩 상태: ${stats.embeddedNotes} / ${stats.totalNotes} 노트 (${percentage}%)`,
-    });
+    // textContent만 업데이트 (DOM 재생성 없음)
+    this.statsTextEl.textContent = `${stats.embeddedNotes} / ${stats.totalNotes} 노트 (${percentage}%)`;
 
-    // Progress bar
-    const progressContainer = statsEl.createDiv({ cls: 'embedding-progress-bar' });
-    progressContainer.style.width = '100%';
-    progressContainer.style.height = '8px';
-    progressContainer.style.backgroundColor = 'var(--background-modifier-border)';
-    progressContainer.style.borderRadius = '4px';
-    progressContainer.style.overflow = 'hidden';
-    progressContainer.style.marginTop = '5px';
-
-    const progressFill = progressContainer.createDiv();
-    progressFill.style.width = `${percentage}%`;
-    progressFill.style.height = '100%';
-    progressFill.style.backgroundColor = percentage === 100
+    // style만 업데이트 (DOM 재생성 없음)
+    this.progressFillEl.style.width = `${percentage}%`;
+    this.progressFillEl.style.backgroundColor = percentage === 100
       ? 'var(--interactive-success)'
       : 'var(--interactive-accent)';
   }
@@ -431,7 +441,7 @@ export class LearningPathSettingTab extends PluginSettingTab {
   private startStatsPolling(): void {
     this.stopStatsPolling(); // 기존 폴링 중지
     this.pollingInterval = window.setInterval(() => {
-      this.refreshStats();
+      this.updateStatsDisplay();
     }, 500);
   }
 
