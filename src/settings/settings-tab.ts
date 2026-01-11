@@ -1,6 +1,6 @@
 /**
  * Settings Tab
- * 플러그인 설정 탭 UI
+ * Plugin settings tab UI
  */
 
 import { App, PluginSettingTab, Setting, Notice, DropdownComponent } from 'obsidian';
@@ -24,7 +24,7 @@ export class LearningPathSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    containerEl.createEl('h2', { text: '학습 경로 생성기 설정' });
+    containerEl.createEl('h2', { text: 'Learning Path Generator Settings' });
 
     // AI Settings Section
     this.displayAISettings(containerEl);
@@ -33,11 +33,11 @@ export class LearningPathSettingTab extends PluginSettingTab {
     await this.displayEmbeddingSettings(containerEl);
 
     // Storage Settings
-    containerEl.createEl('h3', { text: '저장소 설정' });
+    containerEl.createEl('h3', { text: 'Storage Settings' });
 
     new Setting(containerEl)
-      .setName('데이터 저장 폴더')
-      .setDesc('학습 경로 데이터를 저장할 폴더 경로')
+      .setName('Data Storage Folder')
+      .setDesc('Folder path to store learning path data')
       .addText((text) =>
         text
           .setPlaceholder('.learning-paths')
@@ -49,11 +49,11 @@ export class LearningPathSettingTab extends PluginSettingTab {
       );
 
     // Frontmatter Settings
-    containerEl.createEl('h3', { text: 'Frontmatter 설정' });
+    containerEl.createEl('h3', { text: 'Frontmatter Settings' });
 
     new Setting(containerEl)
-      .setName('숙달 레벨 키')
-      .setDesc('노트의 frontmatter에서 숙달 레벨을 저장할 키')
+      .setName('Mastery Level Key')
+      .setDesc('Frontmatter key to store mastery level')
       .addText((text) =>
         text
           .setPlaceholder('learning_mastery')
@@ -65,8 +65,8 @@ export class LearningPathSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName('마지막 학습 시간 키')
-      .setDesc('마지막 학습 시간을 저장할 frontmatter 키')
+      .setName('Last Studied Key')
+      .setDesc('Frontmatter key to store last studied time')
       .addText((text) =>
         text
           .setPlaceholder('learning_last_studied')
@@ -78,8 +78,8 @@ export class LearningPathSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName('학습 횟수 키')
-      .setDesc('학습 횟수를 저장할 frontmatter 키')
+      .setName('Study Count Key')
+      .setDesc('Frontmatter key to store study count')
       .addText((text) =>
         text
           .setPlaceholder('learning_study_count')
@@ -91,11 +91,11 @@ export class LearningPathSettingTab extends PluginSettingTab {
       );
 
     // General Settings
-    containerEl.createEl('h3', { text: '일반 설정' });
+    containerEl.createEl('h3', { text: 'General Settings' });
 
     new Setting(containerEl)
-      .setName('제외할 폴더')
-      .setDesc('학습 경로 생성에서 제외할 폴더들 (쉼표로 구분)')
+      .setName('Excluded Folders')
+      .setDesc('Folders to exclude from learning path generation (comma-separated)')
       .addText((text) =>
         text
           .setPlaceholder('Templates, Archive')
@@ -110,8 +110,8 @@ export class LearningPathSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName('기본 예상 학습 시간')
-      .setDesc('노드당 기본 예상 학습 시간 (분)')
+      .setName('Default Estimated Time')
+      .setDesc('Default estimated study time per node (minutes)')
       .addSlider((slider) =>
         slider
           .setLimits(5, 60, 5)
@@ -124,8 +124,8 @@ export class LearningPathSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName('사이드바 뷰 자동 열기')
-      .setDesc('플러그인 로드 시 학습 경로 뷰를 자동으로 엽니다')
+      .setName('Auto Open Sidebar View')
+      .setDesc('Automatically open learning path view when plugin loads')
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.autoOpenView)
@@ -136,11 +136,11 @@ export class LearningPathSettingTab extends PluginSettingTab {
       );
 
     // Display Settings
-    containerEl.createEl('h3', { text: '표시 설정' });
+    containerEl.createEl('h3', { text: 'Display Settings' });
 
     new Setting(containerEl)
-      .setName('최대 표시 노드 수')
-      .setDesc('학습 경로에서 표시할 최대 노드 수 (분석은 전체 노트를 대상으로 수행)')
+      .setName('Max Display Nodes')
+      .setDesc('Maximum number of nodes to display in learning path (analysis covers all notes)')
       .addSlider((slider) =>
         slider
           .setLimits(10, 100, 10)
@@ -153,7 +153,7 @@ export class LearningPathSettingTab extends PluginSettingTab {
       );
 
     // About Section
-    containerEl.createEl('h3', { text: '정보' });
+    containerEl.createEl('h3', { text: 'About' });
 
     const aboutEl = containerEl.createDiv({ cls: 'setting-item' });
     aboutEl.createEl('p', {
@@ -161,25 +161,25 @@ export class LearningPathSettingTab extends PluginSettingTab {
       cls: 'setting-item-description',
     });
     aboutEl.createEl('p', {
-      text: '볼트의 노트들로부터 학습 경로와 커리큘럼을 생성합니다.',
+      text: 'Generate learning paths and curricula from your vault notes.',
       cls: 'setting-item-description',
     });
     aboutEl.createEl('p', {
-      text: '의미 검색은 Vault Embeddings 플러그인의 임베딩 데이터를 사용합니다.',
+      text: 'Semantic search uses embedding data from the Vault Embeddings plugin.',
       cls: 'setting-item-description',
     });
   }
 
   private displayAISettings(containerEl: HTMLElement): void {
-    containerEl.createEl('h3', { text: 'AI 설정' });
+    containerEl.createEl('h3', { text: 'AI Settings' });
 
     const currentProvider = this.plugin.settings.ai.provider;
     const currentProviderConfig = AI_PROVIDERS[currentProvider as keyof typeof AI_PROVIDERS];
 
     // Enable AI toggle
     new Setting(containerEl)
-      .setName('AI 분석 사용')
-      .setDesc('AI를 사용하여 학습 경로를 분석합니다. 비활성화하면 링크 기반 분석만 수행합니다.')
+      .setName('Enable AI Analysis')
+      .setDesc('Use AI to analyze learning paths. If disabled, only link-based analysis is performed.')
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.ai.enabled)
@@ -191,8 +191,8 @@ export class LearningPathSettingTab extends PluginSettingTab {
 
     // Provider selection
     new Setting(containerEl)
-      .setName('AI 프로바이더')
-      .setDesc('사용할 AI 서비스를 선택하세요')
+      .setName('AI Provider')
+      .setDesc('Select the AI service to use')
       .addDropdown((dropdown) => {
         Object.entries(AI_PROVIDERS).forEach(([key, config]) => {
           dropdown.addOption(key, config.displayName);
@@ -207,11 +207,11 @@ export class LearningPathSettingTab extends PluginSettingTab {
 
     // API Key input with Test button
     new Setting(containerEl)
-      .setName(`${currentProviderConfig.displayName} API 키`)
+      .setName(`${currentProviderConfig.displayName} API Key`)
       .setDesc(this.getApiKeyDescription(currentProvider))
       .addText((text) => {
         text
-          .setPlaceholder('API 키 입력')
+          .setPlaceholder('Enter API key')
           .setValue(this.plugin.settings.ai.apiKeys[currentProvider] ?? '')
           .onChange(async (value) => {
             this.plugin.settings.ai.apiKeys[currentProvider] = value;
@@ -222,39 +222,39 @@ export class LearningPathSettingTab extends PluginSettingTab {
       })
       .addButton((button) => {
         button
-          .setButtonText('테스트')
+          .setButtonText('Test')
           .onClick(async () => {
             const apiKey = this.plugin.settings.ai.apiKeys[currentProvider];
 
             if (!apiKey) {
-              new Notice('API 키를 먼저 입력해주세요.');
+              new Notice('Please enter an API key first.');
               return;
             }
 
             button.setDisabled(true);
-            button.setButtonText('테스트 중...');
+            button.setButtonText('Testing...');
 
             try {
               const isValid = await this.plugin.testApiKey(currentProvider, apiKey);
               if (isValid) {
-                new Notice(`✅ ${currentProviderConfig.displayName} API 키가 유효합니다!`);
+                new Notice(`${currentProviderConfig.displayName} API key is valid!`);
               } else {
-                new Notice(`❌ ${currentProviderConfig.displayName} API 키가 유효하지 않습니다.`);
+                new Notice(`${currentProviderConfig.displayName} API key is invalid.`);
               }
             } catch (error) {
-              const message = error instanceof Error ? error.message : '알 수 없는 오류';
-              new Notice(`❌ 테스트 실패: ${message}`);
+              const message = error instanceof Error ? error.message : 'Unknown error';
+              new Notice(`Test failed: ${message}`);
             } finally {
               button.setDisabled(false);
-              button.setButtonText('테스트');
+              button.setButtonText('Test');
             }
           });
       });
 
     // Model selection
     new Setting(containerEl)
-      .setName('모델')
-      .setDesc('사용할 모델을 선택하세요')
+      .setName('Model')
+      .setDesc('Select the model to use')
       .addDropdown((dropdown) => {
         this.modelDropdown = dropdown;
         this.populateModelDropdown(dropdown, currentProvider);
@@ -279,20 +279,20 @@ export class LearningPathSettingTab extends PluginSettingTab {
   private getApiKeyDescription(provider: AIProviderType): string {
     switch (provider) {
       case 'claude':
-        return 'https://console.anthropic.com 에서 발급받을 수 있습니다.';
+        return 'Get your API key from https://console.anthropic.com';
       case 'openai':
-        return 'https://platform.openai.com 에서 발급받을 수 있습니다.';
+        return 'Get your API key from https://platform.openai.com';
       case 'gemini':
-        return 'https://aistudio.google.com 에서 발급받을 수 있습니다.';
+        return 'Get your API key from https://aistudio.google.com';
       case 'grok':
-        return 'https://console.x.ai 에서 발급받을 수 있습니다.';
+        return 'Get your API key from https://console.x.ai';
       default:
-        return 'API 키를 입력하세요.';
+        return 'Enter your API key.';
     }
   }
 
   private async displayEmbeddingSettings(containerEl: HTMLElement): Promise<void> {
-    containerEl.createEl('h3', { text: '의미 검색 설정' });
+    containerEl.createEl('h3', { text: 'Semantic Search Settings' });
 
     // Vault Embeddings integration info
     const infoEl = containerEl.createDiv({ cls: 'setting-item-description' });
@@ -301,12 +301,12 @@ export class LearningPathSettingTab extends PluginSettingTab {
     infoEl.style.backgroundColor = 'var(--background-secondary)';
     infoEl.style.borderRadius = '5px';
     infoEl.innerHTML = `
-      <p style="margin: 0 0 5px 0;"><strong>📦 Vault Embeddings 연동</strong></p>
-      <p style="margin: 0; font-size: 0.9em;">노트 임베딩은 <strong>Vault Embeddings</strong> 플러그인이 관리합니다.<br>
-      이 플러그인은 저장된 임베딩을 읽어 의미 검색을 수행합니다.</p>
+      <p style="margin: 0 0 5px 0;"><strong>Vault Embeddings Integration</strong></p>
+      <p style="margin: 0; font-size: 0.9em;">Note embeddings are managed by the <strong>Vault Embeddings</strong> plugin.<br>
+      This plugin reads stored embeddings to perform semantic search.</p>
     `;
 
-    // 임베딩 상태 표시
+    // Embedding status display
     const stats = await this.plugin.getEmbeddingStats();
     const statsEl = containerEl.createDiv({ cls: 'embedding-stats' });
     statsEl.style.padding = '10px';
@@ -316,27 +316,27 @@ export class LearningPathSettingTab extends PluginSettingTab {
 
     if (!stats.isAvailable) {
       statsEl.createEl('p', {
-        text: '⚠️ Vault Embeddings 데이터를 찾을 수 없습니다.',
+        text: 'Vault Embeddings data not found.',
         cls: 'mod-warning',
       });
       statsEl.createEl('p', {
-        text: 'Vault Embeddings 플러그인을 설치하고 "Embed All Notes"를 실행하세요.',
+        text: 'Install Vault Embeddings plugin and run "Embed All Notes".',
         cls: 'setting-item-description',
       });
     } else {
       statsEl.createEl('p', {
-        text: `✅ 임베딩 로드됨: ${stats.totalEmbeddings}개`,
+        text: `Embeddings loaded: ${stats.totalEmbeddings}`,
       });
       statsEl.createEl('p', {
-        text: `모델: ${stats.model} (${stats.provider})`,
+        text: `Model: ${stats.model} (${stats.provider})`,
         cls: 'setting-item-description',
       });
     }
 
     // OpenAI API Key for query embeddings
     new Setting(containerEl)
-      .setName('쿼리 임베딩용 OpenAI API 키')
-      .setDesc('검색 쿼리를 임베딩하기 위한 OpenAI API 키. 비워두면 AI 설정의 OpenAI 키를 사용합니다.')
+      .setName('OpenAI API Key for Query Embeddings')
+      .setDesc('OpenAI API key for embedding search queries. Leave empty to use the OpenAI key from AI settings.')
       .addText((text) => {
         text
           .setPlaceholder('sk-...')
@@ -351,23 +351,23 @@ export class LearningPathSettingTab extends PluginSettingTab {
 
     // Refresh embeddings button
     new Setting(containerEl)
-      .setName('임베딩 캐시 새로고침')
-      .setDesc('Vault Embeddings에서 최신 임베딩 데이터를 다시 로드합니다.')
+      .setName('Refresh Embeddings Cache')
+      .setDesc('Reload latest embedding data from Vault Embeddings.')
       .addButton((button) =>
         button
-          .setButtonText('새로고침')
+          .setButtonText('Refresh')
           .onClick(async () => {
             button.setDisabled(true);
-            button.setButtonText('로딩 중...');
+            button.setButtonText('Loading...');
             try {
               // Use command to refresh
               await (this.plugin as any).refreshEmbeddings();
               await this.display(); // Refresh UI
             } catch (error) {
-              new Notice('새로고침 실패');
+              new Notice('Refresh failed');
             } finally {
               button.setDisabled(false);
-              button.setButtonText('새로고침');
+              button.setButtonText('Refresh');
             }
           })
       );
@@ -376,6 +376,6 @@ export class LearningPathSettingTab extends PluginSettingTab {
     const noteEl = containerEl.createDiv({ cls: 'setting-item-description' });
     noteEl.style.marginTop = '10px';
     noteEl.style.fontStyle = 'italic';
-    noteEl.innerHTML = '※ 노트 임베딩 생성/관리는 Vault Embeddings 플러그인 설정에서 수행하세요.';
+    noteEl.innerHTML = 'Note: Create and manage note embeddings in Vault Embeddings plugin settings.';
   }
 }

@@ -1,8 +1,8 @@
 /**
  * StandaloneSemanticSearchAdapter
  *
- * EmbeddingService를 사용하여 ISemanticSearchService 인터페이스 구현.
- * PKM Note Recommender 의존성 없이 독립적으로 의미 기반 검색 수행.
+ * Implements ISemanticSearchService interface using EmbeddingService.
+ * Performs semantic-based search independently without PKM Note Recommender dependency.
  */
 
 import type {
@@ -15,14 +15,14 @@ export class StandaloneSemanticSearchAdapter implements ISemanticSearchService {
   constructor(private embeddingService: EmbeddingService) {}
 
   /**
-   * 서비스 사용 가능 여부 확인
+   * Check service availability
    */
   isAvailable(): boolean {
     return this.embeddingService.isAvailable();
   }
 
   /**
-   * 텍스트 내용과 유사한 노트 검색
+   * Search for notes similar to text content
    */
   async findSimilarToContent(
     content: string,
@@ -52,7 +52,7 @@ export class StandaloneSemanticSearchAdapter implements ISemanticSearchService {
   }
 
   /**
-   * 여러 개념에 대해 일괄 검색
+   * Batch search for multiple concepts
    */
   async findNotesForConcepts(
     concepts: string[],
@@ -66,14 +66,14 @@ export class StandaloneSemanticSearchAdapter implements ISemanticSearchService {
 
     if (!this.isAvailable()) {
       console.warn('[StandaloneSemanticSearchAdapter] Service not available for batch search');
-      // 모든 개념에 대해 빈 배열 반환
+      // Return empty array for all concepts
       for (const concept of concepts) {
         resultsMap.set(concept, []);
       }
       return resultsMap;
     }
 
-    // 각 개념에 대해 순차적으로 검색 (API 부하 방지)
+    // Search sequentially for each concept (prevent API overload)
     for (const concept of concepts) {
       try {
         const results = await this.findSimilarToContent(concept, {

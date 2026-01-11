@@ -1,6 +1,6 @@
 /**
  * Grok LLM Provider
- * xAI Grok API 구현 (OpenAI 호환 API)
+ * xAI Grok API implementation (OpenAI compatible API)
  */
 
 import {
@@ -40,7 +40,7 @@ export class GrokProvider extends BaseProvider {
 
   async generate(messages: LLMMessage[], options?: LLMGenerateOptions): Promise<LLMResponse> {
     if (!this.isAvailable()) {
-      return { success: false, content: '', error: 'API 키가 설정되지 않았습니다.' };
+      return { success: false, content: '', error: 'API key not configured.' };
     }
 
     try {

@@ -115,14 +115,14 @@ export default class LearningPathGeneratorPlugin extends Plugin {
     });
 
     // Add ribbon icon
-    this.addRibbonIcon('route', '학습 경로 생성기', () => {
+    this.addRibbonIcon('route', 'Learning Path Generator', () => {
       this.activateView();
     });
 
     // Add commands
     this.addCommand({
       id: 'open-learning-path-view',
-      name: '학습 경로 뷰 열기',
+      name: 'Open Learning Path View',
       callback: () => {
         this.activateView();
       },
@@ -130,7 +130,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
 
     this.addCommand({
       id: 'generate-learning-path',
-      name: '현재 노트에서 학습 경로 생성',
+      name: 'Generate Learning Path from Current Note',
       checkCallback: (checking) => {
         const activeFile = this.app.workspace.getActiveFile();
         if (activeFile) {
@@ -145,7 +145,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
 
     this.addCommand({
       id: 'refresh-embeddings',
-      name: '임베딩 캐시 새로고침 (Vault Embeddings)',
+      name: 'Refresh Embeddings Cache (Vault Embeddings)',
       callback: async () => {
         await this.refreshEmbeddings();
       },
@@ -170,7 +170,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   }
 
   /**
-   * 설정 로드
+   * Load settings
    */
   async loadSettings(): Promise<void> {
     const loadedData = await this.loadData();
@@ -178,7 +178,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   }
 
   /**
-   * 설정 병합 (기존 설정과 기본값 병합)
+   * Merge settings (merge existing settings with defaults)
    */
   private mergeSettings(defaults: LearningPathSettings, loaded: any): LearningPathSettings {
     if (!loaded) return { ...defaults };
@@ -205,7 +205,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   }
 
   /**
-   * 임베딩 통계 조회 (설정 UI용)
+   * Get embedding statistics (for settings UI)
    */
   async getEmbeddingStats(): Promise<{ totalEmbeddings: number; provider: string; model: string; isAvailable: boolean }> {
     const isAvailable = this.embeddingService?.isAvailable() ?? false;
@@ -223,7 +223,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   }
 
   /**
-   * 설정 저장
+   * Save settings
    */
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
@@ -232,7 +232,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   }
 
   /**
-   * 저장 경로 마이그레이션 (.learning-paths -> _learning-paths)
+   * Migrate storage path (.learning-paths -> _learning-paths)
    */
   private async migrateStoragePath(): Promise<void> {
     const oldPath = '.learning-paths';
@@ -296,11 +296,11 @@ export default class LearningPathGeneratorPlugin extends Plugin {
     this.settings.storagePath = newPath;
     await this.saveData(this.settings);
     console.log('[Migration] Migration complete. storagePath updated to', newPath);
-    new Notice('학습 경로 저장 폴더가 마이그레이션되었습니다.');
+    new Notice('Learning path storage folder has been migrated.');
   }
 
   /**
-   * AI Service 초기화
+   * Initialize AI Service
    */
   private initializeAIService(): void {
     this.aiService = initializeAIService({
@@ -318,32 +318,32 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   }
 
   /**
-   * Embedding System 초기화
+   * Initialize Embedding System
    *
-   * 노트 임베딩: Vault Embeddings 플러그인에서 읽기
-   * 쿼리 임베딩: OpenAI API로 생성
+   * Note embeddings: Read from Vault Embeddings plugin
+   * Query embeddings: Generate via OpenAI API
    */
   private async initializeEmbeddingSystem(): Promise<void> {
-    // OpenAI API 키 (쿼리 임베딩용)
+    // OpenAI API key (for query embeddings)
     const apiKey = this.settings.embedding.openaiApiKey || this.settings.ai.apiKeys.openai;
 
-    // 쿼리 임베딩 프로바이더 (OpenAI)
+    // Query embedding provider (OpenAI)
     this.embeddingProvider = new OpenAIEmbeddingProvider(apiKey || '');
 
-    // Vault Embeddings에서 노트 임베딩 읽기
+    // Read note embeddings from Vault Embeddings
     this.vectorStore = new VaultEmbeddingsVectorStore(this.app, {
       storagePath: '09_Embedded',
       embeddingsFolder: 'embeddings',
     });
     await this.vectorStore.initialize();
 
-    // 임베딩 서비스 초기화 (쿼리 임베딩 + 검색)
+    // Initialize embedding service (query embeddings + search)
     this.embeddingService = initializeEmbeddingService(
       this.embeddingProvider,
       this.vectorStore
     );
 
-    // 시맨틱 검색 어댑터
+    // Semantic search adapter
     this.semanticSearchAdapter = new StandaloneSemanticSearchAdapter(
       this.embeddingService
     );
@@ -357,21 +357,21 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   }
 
   /**
-   * 임베딩 캐시 새로고침
+   * Refresh embeddings cache
    */
   private async refreshEmbeddings(): Promise<void> {
     try {
       await this.vectorStore.refresh();
       const stats = await this.vectorStore.getStats();
-      new Notice(`임베딩 새로고침 완료: ${stats.totalEmbeddings}개`);
+      new Notice(`Embeddings refreshed: ${stats.totalEmbeddings} items`);
     } catch (error) {
       console.error('[LearningPathGenerator] Failed to refresh embeddings:', error);
-      new Notice('임베딩 새로고침 실패');
+      new Notice('Failed to refresh embeddings');
     }
   }
 
   /**
-   * 설정 변경 시 서비스 재초기화
+   * Reinitialize services when settings change
    */
   private async reinitializeServices(): Promise<void> {
     this.pathRepository = new PathRepository(this.app, {
@@ -411,14 +411,14 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   }
 
   /**
-   * API 키 테스트
+   * Test API key
    */
   async testApiKey(provider: AIProviderType, apiKey: string): Promise<boolean> {
     return this.aiService.testApiKey(provider, apiKey);
   }
 
   /**
-   * 학습 경로 뷰 활성화
+   * Activate learning path view
    */
   async activateView(): Promise<void> {
     const { workspace } = this.app;
@@ -446,12 +446,12 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   }
 
   /**
-   * 현재 노트를 목표로 학습 경로 생성 또는 기존 경로 로드
+   * Generate learning path from current note or load existing path
    */
   async generatePathFromCurrentNote(): Promise<void> {
     const activeFile = this.app.workspace.getActiveFile();
     if (!activeFile) {
-      new Notice('활성화된 노트가 없습니다.');
+      new Notice('No active note.');
       return;
     }
 
@@ -463,7 +463,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
     await this.activateView();
     const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_LEARNING_PATH);
     if (leaves.length === 0) {
-      new Notice('학습 경로 뷰를 열 수 없습니다.');
+      new Notice('Cannot open learning path view.');
       return;
     }
     const view = leaves[0].view as LearningPathView;
@@ -478,27 +478,27 @@ export default class LearningPathGeneratorPlugin extends Plugin {
       if (existingPath) {
         // Load existing path
         await view.displayPath(existingPath);
-        new Notice(`기존 학습 경로를 불러왔습니다: ${goalNoteName}`);
+        new Notice(`Loaded existing learning path: ${goalNoteName}`);
         return;
       }
 
       // No existing path, generate new one
-      new Notice(`'${goalNoteName}' 학습 경로 생성 중...`);
+      new Notice(`Generating learning path for '${goalNoteName}'...`);
       await view.showLoadingState(goalNoteName);
 
       const response = await this.generatePathUseCase.execute({
-        name: `${goalNoteName}까지의 학습 경로`,
+        name: `Learning path to ${goalNoteName}`,
         goalNoteId,
         excludeFolders: this.settings.excludeFolders,
       });
 
       if (response.success && response.path) {
         const nodeCount = response.nodes?.length ?? 0;
-        new Notice(`학습 경로 생성 완료! ${nodeCount}개 노드`);
+        new Notice(`Learning path generated! ${nodeCount} nodes`);
 
         // Show warnings if any
         if (response.warnings && response.warnings.length > 0) {
-          new Notice(`경고: ${response.warnings.join(', ')}`, 5000);
+          new Notice(`Warning: ${response.warnings.join(', ')}`, 5000);
         }
 
         const path = await this.pathRepository.findById(response.path.id);
@@ -506,14 +506,14 @@ export default class LearningPathGeneratorPlugin extends Plugin {
           await view.displayPath(path);
         }
       } else {
-        await view.showErrorState(response.error || '학습 경로 생성에 실패했습니다.');
-        new Notice(`학습 경로 생성 실패: ${response.error}`, 5000);
+        await view.showErrorState(response.error || 'Failed to generate learning path.');
+        new Notice(`Failed to generate learning path: ${response.error}`, 5000);
         console.error('Failed to generate path:', response.error);
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : '알 수 없는 오류';
+      const message = error instanceof Error ? error.message : 'Unknown error';
       await view.showErrorState(message);
-      new Notice(`오류 발생: ${message}`, 5000);
+      new Notice(`Error: ${message}`, 5000);
       console.error('Error generating path:', error);
     }
   }

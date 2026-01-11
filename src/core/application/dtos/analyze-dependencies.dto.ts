@@ -1,89 +1,89 @@
 /**
  * AnalyzeDependencies Use Case DTOs
- * LLM 기반 의존성 분석 요청/응답 데이터 전송 객체
+ * LLM-based dependency analysis request/response data transfer objects
  */
 
 import { DependencyRelationData, KnowledgeGapData } from '../../domain';
 
 export interface AnalyzeDependenciesRequest {
   /**
-   * 분석할 노트 ID들
+   * Note IDs to analyze
    */
   noteIds: string[];
 
   /**
-   * 분석 깊이 (연결된 노트까지 분석)
+   * Analysis depth (analyze up to connected notes)
    */
   depth?: number;
 
   /**
-   * 기존 의존관계 포함 여부
+   * Whether to include existing dependencies
    */
   includeExisting?: boolean;
 }
 
 export interface AnalyzeDependenciesResponse {
   /**
-   * 성공 여부
+   * Success status
    */
   success: boolean;
 
   /**
-   * 발견된 의존 관계들
+   * Discovered dependencies
    */
   dependencies?: DependencyRelationData[];
 
   /**
-   * 식별된 지식 갭들
+   * Identified knowledge gaps
    */
   knowledgeGaps?: KnowledgeGapData[];
 
   /**
-   * 발견된 핵심 개념들
+   * Discovered core concepts
    */
   concepts?: string[];
 
   /**
-   * 분석 신뢰도 (0-1)
+   * Analysis confidence (0-1)
    */
   confidence?: number;
 
   /**
-   * 에러 메시지
+   * Error message
    */
   error?: string;
 }
 
 export interface IdentifyKnowledgeGapsRequest {
   /**
-   * 학습 경로 ID
+   * Learning path ID
    */
   pathId: string;
 
   /**
-   * 볼트에 존재하는 개념들
+   * Concepts existing in vault
    */
   existingConcepts?: string[];
 }
 
 export interface IdentifyKnowledgeGapsResponse {
   /**
-   * 성공 여부
+   * Success status
    */
   success: boolean;
 
   /**
-   * 식별된 지식 갭들
+   * Identified knowledge gaps
    */
   gaps?: KnowledgeGapData[];
 
   /**
-   * 분석 요약
+   * Analysis summary
    */
   summary?: string;
 
   /**
-   * 에러 메시지
+   * Error message
    */
   error?: string;
 }

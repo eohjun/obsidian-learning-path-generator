@@ -1,36 +1,36 @@
 /**
  * DependencyAnalyzer Domain Service
  *
- * 노트 간 의존성을 분석하고 학습 순서를 결정하는 도메인 서비스
+ * Domain service that analyzes dependencies between notes and determines learning order
  *
- * 알고리즘:
- * - DAG(Directed Acyclic Graph) 구성
- * - Kahn's Algorithm을 사용한 위상 정렬
- * - DFS 기반 순환 탐지
+ * Algorithms:
+ * - DAG (Directed Acyclic Graph) construction
+ * - Topological sort using Kahn's Algorithm
+ * - DFS-based cycle detection
  */
 
 import { DependencyRelation } from '../value-objects/dependency-relation';
 
 export interface DependencyGraph {
   /**
-   * 그래프의 모든 노드 (노트 ID)
+   * All nodes in the graph (note IDs)
    */
   nodes: Set<string>;
 
   /**
-   * 인접 리스트 (source -> targets)
-   * edge가 있으면: source를 먼저 학습해야 target 학습 가능
+   * Adjacency list (source -> targets)
+   * If edge exists: source must be learned before target
    */
   edges: Map<string, string[]>;
 }
 
 export class DependencyAnalyzer {
   /**
-   * 노드와 의존관계로부터 그래프 구성
+   * Build graph from nodes and dependencies
    *
-   * @param nodeIds 노드 ID 목록
-   * @param dependencies 의존 관계 목록
-   * @returns 의존성 그래프
+   * @param nodeIds List of node IDs
+   * @param dependencies List of dependency relations
+   * @returns Dependency graph
    */
   buildGraph(
     nodeIds: string[],
@@ -62,12 +62,12 @@ export class DependencyAnalyzer {
   }
 
   /**
-   * 위상 정렬 (Kahn's Algorithm)
-   * 선행 노드가 먼저 오도록 정렬
+   * Topological sort (Kahn's Algorithm)
+   * Sort so that prerequisite nodes come first
    *
-   * @param graph 의존성 그래프
-   * @returns 정렬된 노드 ID 배열
-   * @throws 순환 의존성이 있으면 에러
+   * @param graph Dependency graph
+   * @returns Sorted array of node IDs
+   * @throws Error if circular dependency exists
    */
   topologicalSort(graph: DependencyGraph): string[] {
     if (graph.nodes.size === 0) {
@@ -122,10 +122,10 @@ export class DependencyAnalyzer {
   }
 
   /**
-   * 순환 의존성 탐지 (DFS 기반)
+   * Detect circular dependency (DFS-based)
    *
-   * @param graph 의존성 그래프
-   * @returns 순환이 있으면 true
+   * @param graph Dependency graph
+   * @returns true if cycle exists
    */
   detectCycle(graph: DependencyGraph): boolean {
     const visited = new Set<string>();
@@ -158,11 +158,11 @@ export class DependencyAnalyzer {
   }
 
   /**
-   * 특정 노드의 모든 선행 노드(조상) 찾기
+   * Find all ancestor nodes (predecessors) of a specific node
    *
-   * @param graph 의존성 그래프
-   * @param nodeId 대상 노드
-   * @returns 선행 노드들의 집합
+   * @param graph Dependency graph
+   * @param nodeId Target node
+   * @returns Set of ancestor nodes
    */
   getAncestors(graph: DependencyGraph, nodeId: string): Set<string> {
     const ancestors = new Set<string>();
@@ -194,11 +194,11 @@ export class DependencyAnalyzer {
   }
 
   /**
-   * 특정 노드의 모든 후행 노드(자손) 찾기
+   * Find all descendant nodes (successors) of a specific node
    *
-   * @param graph 의존성 그래프
-   * @param nodeId 대상 노드
-   * @returns 후행 노드들의 집합
+   * @param graph Dependency graph
+   * @param nodeId Target node
+   * @returns Set of descendant nodes
    */
   getDescendants(graph: DependencyGraph, nodeId: string): Set<string> {
     const descendants = new Set<string>();
@@ -218,12 +218,12 @@ export class DependencyAnalyzer {
   }
 
   /**
-   * 목표 노드까지의 학습 경로 찾기
-   * 목표 달성에 필요한 모든 선행 노드를 포함
+   * Find learning path to goal node
+   * Includes all prerequisite nodes needed to achieve the goal
    *
-   * @param graph 의존성 그래프
-   * @param goalId 목표 노드 ID
-   * @returns 학습 순서대로 정렬된 노드 ID 배열
+   * @param graph Dependency graph
+   * @param goalId Goal node ID
+   * @returns Array of node IDs sorted in learning order
    */
   findPathToGoal(graph: DependencyGraph, goalId: string): string[] {
     if (!graph.nodes.has(goalId)) {
@@ -256,11 +256,11 @@ export class DependencyAnalyzer {
   }
 
   /**
-   * 노드들을 레벨별로 그룹화
-   * 같은 레벨의 노드들은 병렬 학습 가능
+   * Group nodes by level
+   * Nodes at the same level can be learned in parallel
    *
-   * @param graph 의존성 그래프
-   * @returns 레벨별 노드 배열
+   * @param graph Dependency graph
+   * @returns Array of nodes per level
    */
   getLevels(graph: DependencyGraph): string[][] {
     if (graph.nodes.size === 0) {

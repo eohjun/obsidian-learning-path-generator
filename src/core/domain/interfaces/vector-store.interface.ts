@@ -1,87 +1,87 @@
 /**
  * IVectorStore Interface
  *
- * 임베딩 벡터를 저장하고 유사도 검색을 수행하는 저장소 인터페이스.
- * In-Memory, IndexedDB 등 다양한 저장소를 추상화.
+ * Storage interface for storing embedding vectors and performing similarity search.
+ * Abstracts various storage backends such as In-Memory, IndexedDB, etc.
  */
 
 import type { EmbeddingVector } from './embedding-provider.interface';
 
 /**
- * 벡터 검색 결과
+ * Vector search result
  */
 export interface VectorSearchResult {
-  /** 노트 식별자 */
+  /** Note identifier */
   noteId: string;
-  /** 노트 파일 경로 */
+  /** Note file path */
   notePath: string;
-  /** 유사도 점수 (0.0 ~ 1.0) */
+  /** Similarity score (0.0 ~ 1.0) */
   similarity: number;
 }
 
 /**
- * 벡터 검색 옵션
+ * Vector search options
  */
 export interface VectorSearchOptions {
-  /** 반환할 최대 결과 수 */
+  /** Maximum number of results to return */
   limit?: number;
-  /** 최소 유사도 임계값 (0.0 ~ 1.0) */
+  /** Minimum similarity threshold (0.0 ~ 1.0) */
   threshold?: number;
-  /** 제외할 노트 ID 목록 */
+  /** List of note IDs to exclude */
   excludeNoteIds?: string[];
 }
 
 /**
- * 벡터 저장소 인터페이스
+ * Vector store interface
  */
 export interface IVectorStore {
   /**
-   * 임베딩 벡터 저장
+   * Store embedding vector
    *
-   * @param embedding - 저장할 임베딩 벡터
+   * @param embedding - Embedding vector to store
    */
   store(embedding: EmbeddingVector): void;
 
   /**
-   * 유사 벡터 검색 (Cosine Similarity)
+   * Search for similar vectors (Cosine Similarity)
    *
-   * @param queryVector - 검색 쿼리 벡터
-   * @param options - 검색 옵션
-   * @returns 유사도 순으로 정렬된 검색 결과
+   * @param queryVector - Query vector for search
+   * @param options - Search options
+   * @returns Search results sorted by similarity
    */
   search(queryVector: number[], options?: VectorSearchOptions): VectorSearchResult[];
 
   /**
-   * 저장된 노트 ID 목록 조회
+   * Get list of stored note IDs
    *
-   * @returns 저장된 모든 노트 ID
+   * @returns All stored note IDs
    */
   getStoredNoteIds(): string[];
 
   /**
-   * 특정 노트의 임베딩 삭제
+   * Remove embedding for a specific note
    *
-   * @param noteId - 삭제할 노트 ID
+   * @param noteId - Note ID to remove
    */
   remove(noteId: string): void;
 
   /**
-   * 저장소 전체 초기화
+   * Clear entire store
    */
   clear(): void;
 
   /**
-   * 저장된 벡터 수
+   * Get number of stored vectors
    *
-   * @returns 현재 저장된 임베딩 벡터 수
+   * @returns Current number of stored embedding vectors
    */
   size(): number;
 
   /**
-   * 특정 노트의 임베딩 존재 여부 확인
+   * Check if embedding exists for a specific note
    *
-   * @param noteId - 확인할 노트 ID
-   * @returns 임베딩이 존재하면 true
+   * @param noteId - Note ID to check
+   * @returns true if embedding exists
    */
   has(noteId: string): boolean;
 }

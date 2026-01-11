@@ -1,6 +1,6 @@
 /**
  * Gemini LLM Provider
- * Google Gemini API 구현
+ * Google Gemini API implementation
  */
 
 import {
@@ -42,7 +42,7 @@ export class GeminiProvider extends BaseProvider {
 
   async generate(messages: LLMMessage[], options?: LLMGenerateOptions): Promise<LLMResponse> {
     if (!this.isAvailable()) {
-      return { success: false, content: '', error: 'API 키가 설정되지 않았습니다.' };
+      return { success: false, content: '', error: 'API key not configured.' };
     }
 
     try {

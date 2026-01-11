@@ -1,6 +1,6 @@
 /**
  * Claude LLM Provider
- * Anthropic Claude API 구현
+ * Anthropic Claude API implementation
  */
 
 import {
@@ -38,7 +38,7 @@ export class ClaudeProvider extends BaseProvider {
 
   async generate(messages: LLMMessage[], options?: LLMGenerateOptions): Promise<LLMResponse> {
     if (!this.isAvailable()) {
-      return { success: false, content: '', error: 'API 키가 설정되지 않았습니다.' };
+      return { success: false, content: '', error: 'API key not configured.' };
     }
 
     try {

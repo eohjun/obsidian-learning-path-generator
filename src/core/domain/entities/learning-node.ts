@@ -1,6 +1,6 @@
 /**
  * LearningNode Entity
- * 학습 경로 내의 개별 노드(노트)를 나타내는 엔티티
+ * Entity representing an individual node (note) within a learning path
  */
 
 import { MasteryLevel } from '../value-objects/mastery-level';

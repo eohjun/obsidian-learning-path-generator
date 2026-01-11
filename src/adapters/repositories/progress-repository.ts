@@ -1,6 +1,6 @@
 /**
  * ProgressRepository Adapter
- * Frontmatter를 사용한 학습 진행 상태 저장소 구현
+ * Learning progress repository implementation using Frontmatter
  */
 
 import { App, TFile } from 'obsidian';
@@ -9,17 +9,17 @@ import { generateNoteId } from '../../core/domain/utils/note-id';
 
 export interface ProgressRepositoryConfig {
   /**
-   * 숙달 레벨을 저장할 frontmatter 키
+   * Frontmatter key for storing mastery level
    */
   masteryLevelKey: string;
 
   /**
-   * 마지막 학습 시간을 저장할 frontmatter 키
+   * Frontmatter key for storing last studied time
    */
   lastStudiedKey: string;
 
   /**
-   * 학습 횟수를 저장할 frontmatter 키
+   * Frontmatter key for storing study count
    */
   studyCountKey: string;
 }
@@ -102,7 +102,7 @@ export class ProgressRepository implements IProgressRepository {
   }
 
   /**
-   * 날짜를 'yyyy-MM-dd HH:mm:ss' 형식으로 포맷
+   * Format date as 'yyyy-MM-dd HH:mm:ss'
    */
   private formatDateTime(date: Date): string {
     const year = date.getFullYear();
@@ -171,7 +171,7 @@ export class ProgressRepository implements IProgressRepository {
   }
 
   /**
-   * noteId(hash)로 파일 찾기 - Vault Embeddings 호환
+   * Find file by noteId(hash) - Vault Embeddings compatible
    */
   private async getFileByNoteId(noteId: string): Promise<TFile | null> {
     const files = this.app.vault.getMarkdownFiles();
@@ -179,7 +179,7 @@ export class ProgressRepository implements IProgressRepository {
   }
 
   /**
-   * 문자열에서 MasteryLevel 파싱
+   * Parse MasteryLevel from string
    */
   private parseLevel(value: unknown): MasteryLevel {
     if (typeof value !== 'string') {
@@ -197,7 +197,7 @@ export class ProgressRepository implements IProgressRepository {
   }
 
   /**
-   * Frontmatter 업데이트
+   * Update Frontmatter
    */
   private async updateFrontmatter(
     file: TFile,

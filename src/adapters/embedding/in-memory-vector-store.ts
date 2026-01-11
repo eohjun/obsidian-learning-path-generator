@@ -1,8 +1,8 @@
 /**
  * InMemoryVectorStore
  *
- * 메모리 기반 벡터 저장소.
- * Cosine Similarity를 사용하여 유사 벡터 검색.
+ * Memory-based vector store.
+ * Uses Cosine Similarity for similar vector search.
  */
 
 import type {
@@ -19,14 +19,14 @@ export class InMemoryVectorStore implements IVectorStore {
   private vectors: Map<string, EmbeddingVector> = new Map();
 
   /**
-   * 임베딩 벡터 저장
+   * Store embedding vector
    */
   store(embedding: EmbeddingVector): void {
     this.vectors.set(embedding.noteId, embedding);
   }
 
   /**
-   * 유사 벡터 검색 (Cosine Similarity)
+   * Search for similar vectors (Cosine Similarity)
    */
   search(queryVector: number[], options?: VectorSearchOptions): VectorSearchResult[] {
     const limit = options?.limit ?? DEFAULT_LIMIT;
@@ -36,14 +36,14 @@ export class InMemoryVectorStore implements IVectorStore {
     const results: VectorSearchResult[] = [];
 
     for (const [noteId, embedding] of this.vectors) {
-      // 제외할 노트 건너뛰기
+      // Skip excluded notes
       if (excludeNoteIds.has(noteId)) {
         continue;
       }
 
       const similarity = this.cosineSimilarity(queryVector, embedding.vector);
 
-      // 임계값 이상인 경우만 추가
+      // Only add if above threshold
       if (similarity >= threshold) {
         results.push({
           noteId,
@@ -53,53 +53,53 @@ export class InMemoryVectorStore implements IVectorStore {
       }
     }
 
-    // 유사도 내림차순 정렬 후 limit 적용
+    // Sort by similarity descending and apply limit
     return results
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, limit);
   }
 
   /**
-   * 저장된 노트 ID 목록 조회
+   * Get list of stored note IDs
    */
   getStoredNoteIds(): string[] {
     return Array.from(this.vectors.keys());
   }
 
   /**
-   * 특정 노트의 임베딩 삭제
+   * Remove embedding for a specific note
    */
   remove(noteId: string): void {
     this.vectors.delete(noteId);
   }
 
   /**
-   * 저장소 전체 초기화
+   * Clear entire store
    */
   clear(): void {
     this.vectors.clear();
   }
 
   /**
-   * 저장된 벡터 수
+   * Get number of stored vectors
    */
   size(): number {
     return this.vectors.size;
   }
 
   /**
-   * 특정 노트의 임베딩 존재 여부 확인
+   * Check if embedding exists for a specific note
    */
   has(noteId: string): boolean {
     return this.vectors.has(noteId);
   }
 
   /**
-   * Cosine Similarity 계산
+   * Calculate Cosine Similarity
    *
-   * @param a - 첫 번째 벡터
-   * @param b - 두 번째 벡터
-   * @returns 유사도 (0.0 ~ 1.0)
+   * @param a - First vector
+   * @param b - Second vector
+   * @returns Similarity (0.0 ~ 1.0)
    */
   private cosineSimilarity(a: number[], b: number[]): number {
     if (a.length !== b.length) {

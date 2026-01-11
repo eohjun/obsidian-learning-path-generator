@@ -1,6 +1,6 @@
 /**
  * Model Configurations
- * AI Provider 및 모델 설정
+ * AI Provider and model settings
  */
 
 import { AIProviderType } from '../interfaces/llm-provider.interface';

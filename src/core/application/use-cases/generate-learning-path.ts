@@ -1,13 +1,13 @@
 /**
  * GenerateLearningPathUseCase
- * 학습 경로 생성 유스케이스
+ * Learning path generation use case
  *
- * 새 알고리즘 (v0.4.0):
- * 1. LLM으로 목표 노트에서 선수 개념 추출
- * 2. 의미 검색으로 각 개념에 매칭되는 노트 찾기
- * 3. LLM으로 학습 순서 결정 및 지식 갭 식별
+ * New algorithm (v0.4.0):
+ * 1. Extract prerequisite concepts from goal note using LLM
+ * 2. Find matching notes for each concept using semantic search
+ * 3. Determine learning order and identify knowledge gaps using LLM
  *
- * Fallback: 링크 기반 BFS 탐색 (LLM 또는 의미 검색 불가 시)
+ * Fallback: Link-based BFS traversal (when LLM or semantic search unavailable)
  */
 
 import {
@@ -40,7 +40,7 @@ export class GenerateLearningPathUseCase {
   ) {}
 
   /**
-   * 의미 검색 서비스 설정 (PKM Note Recommender 연동)
+   * Set semantic search service (PKM Note Recommender integration)
    */
   setSemanticSearchService(service: ISemanticSearchService | null): void {
     this.semanticSearchService = service;
@@ -86,7 +86,7 @@ export class GenerateLearningPathUseCase {
       const useLLM = (request.useLLMAnalysis !== false && this.aiService?.isAvailable()) ?? false;
       const useSemanticSearch = this.semanticSearchService?.isAvailable() ?? false;
 
-      // 디버그 로그
+      // Debug log
       console.log('[LearningPath] Algorithm selection:', {
         useLLM,
         useSemanticSearch,
@@ -104,7 +104,7 @@ export class GenerateLearningPathUseCase {
       let totalAnalyzedNotes = 0;
 
       if (useLLM && useSemanticSearch) {
-        // 새 알고리즘: LLM 개념 추출 + 의미 검색
+        // New algorithm: LLM concept extraction + semantic search
         console.log('[LearningPath] ✓ Using NEW semantic search algorithm');
         const result = await this.executeWithSemanticSearch(goalNote, allNotes, noteMap);
 
@@ -116,7 +116,7 @@ export class GenerateLearningPathUseCase {
           levels = [sortedNodeIds];
         } else {
           // Fallback to link-based
-          warnings.push(`의미 검색 실패, 링크 기반 분석으로 전환: ${result.error}`);
+          warnings.push(`Semantic search failed, switching to link-based analysis: ${result.error}`);
           const fallbackResult = await this.executeFallback(goalNote, allNotes, noteMap, useLLM);
           sortedNodeIds = fallbackResult.sortedNodeIds;
           estimatedMinutes = fallbackResult.estimatedMinutes;
@@ -126,15 +126,15 @@ export class GenerateLearningPathUseCase {
           if (fallbackResult.warnings) warnings.push(...fallbackResult.warnings);
         }
       } else {
-        // Fallback: 링크 기반 분석
+        // Fallback: Link-based analysis
         console.log('[LearningPath] ✗ Using FALLBACK link-based algorithm');
         if (!useLLM) {
           console.log('[LearningPath] Reason: LLM not available');
-          warnings.push('LLM 분석이 비활성화되어 링크 기반 분석을 수행합니다.');
+          warnings.push('LLM analysis disabled, performing link-based analysis.');
         }
         if (!useSemanticSearch) {
           console.log('[LearningPath] Reason: PKM Note Recommender not available');
-          warnings.push('PKM Note Recommender 연동 불가, 링크 기반 분석을 수행합니다.');
+          warnings.push('PKM Note Recommender not available, performing link-based analysis.');
         }
 
         const fallbackResult = await this.executeFallback(goalNote, allNotes, noteMap, useLLM);
@@ -194,7 +194,7 @@ export class GenerateLearningPathUseCase {
   }
 
   /**
-   * 새 알고리즘: LLM 개념 추출 + 의미 검색
+   * New algorithm: LLM concept extraction + semantic search
    */
   private async executeWithSemanticSearch(
     goalNote: NoteData,
@@ -219,7 +219,7 @@ export class GenerateLearningPathUseCase {
       };
     }
 
-    // 1. LLM으로 선수 개념 추출
+    // 1. Extract prerequisite concepts using LLM
     console.log('[LearningPath] Extracting prerequisite concepts...');
     const extractionResult = await this.aiService.extractPrerequisiteConcepts({
       title: goalNote.basename,
@@ -233,17 +233,17 @@ export class GenerateLearningPathUseCase {
         estimatedMinutes: {},
         knowledgeGaps: [],
         totalAnalyzedNotes: 0,
-        error: extractionResult.error || '개념 추출 실패',
+        error: extractionResult.error || 'Concept extraction failed',
       };
     }
 
     const concepts = extractionResult.data;
     console.log(`[LearningPath] Extracted ${concepts.prerequisites.length} concepts, ${concepts.keywords.length} keywords`);
 
-    // 2. 각 개념에 대해 의미 검색 수행
+    // 2. Perform semantic search for each concept
     const searchQueries = [
       ...concepts.prerequisites.map((p) => p.concept),
-      ...concepts.keywords.slice(0, 5), // 상위 5개 키워드만
+      ...concepts.keywords.slice(0, 5), // Top 5 keywords only
     ];
 
     const foundNotes = new Map<string, NoteData>();
@@ -271,7 +271,7 @@ export class GenerateLearningPathUseCase {
 
     console.log(`[LearningPath] Found ${foundNotes.size} unique related notes`);
 
-    // 3. 지식 갭 식별: 개념 중 매칭되는 노트가 없는 것
+    // 3. Identify knowledge gaps: concepts with no matching notes
     const knowledgeGaps: KnowledgeGapItem[] = [];
     for (const prereq of concepts.prerequisites) {
       const matchedNotes = conceptNoteMapping.get(prereq.concept) || [];
@@ -281,12 +281,12 @@ export class GenerateLearningPathUseCase {
           reason: prereq.description,
           priority: prereq.importance === 'essential' ? 'high' :
                    prereq.importance === 'helpful' ? 'medium' : 'low',
-          suggestedResources: [`"${prereq.concept}" 관련 자료 검색`, `${prereq.concept} 입문서`],
+          suggestedResources: [`Search for "${prereq.concept}" resources`, `${prereq.concept} introduction`],
         });
       }
     }
 
-    // 4. 발견된 노트가 없으면 실패
+    // 4. Fail if no notes found
     if (foundNotes.size === 0) {
       return {
         success: false,
@@ -294,11 +294,11 @@ export class GenerateLearningPathUseCase {
         estimatedMinutes: {},
         knowledgeGaps,
         totalAnalyzedNotes: 0,
-        error: '관련 노트를 찾지 못했습니다.',
+        error: 'No related notes found.',
       };
     }
 
-    // 5. LLM으로 학습 순서 결정
+    // 5. Determine learning order using LLM
     const relatedNotes = Array.from(foundNotes.values()).map((n) => ({
       title: n.basename,
       content: n.content,
@@ -321,8 +321,8 @@ export class GenerateLearningPathUseCase {
       };
     }
 
-    // 6. 결과 조합
-    // learningOrder에서 실제 존재하는 노트 ID로 변환
+    // 6. Combine results
+    // Convert learningOrder to actual existing note IDs
     const titleToId = new Map<string, string>();
     for (const [id, note] of noteMap) {
       titleToId.set(note.basename, id);
@@ -333,15 +333,15 @@ export class GenerateLearningPathUseCase {
       .map((title) => titleToId.get(title))
       .filter((id): id is string => id !== undefined);
 
-    // 목표 노트가 없으면 추가
+    // Add goal note if not present
     if (!sortedNodeIds.includes(goalNote.id)) {
       sortedNodeIds.push(goalNote.id);
     }
 
-    // LLM이 식별한 추가 지식 갭 병합
+    // Merge additional knowledge gaps identified by LLM
     const llmGaps = analysisResult.data.knowledgeGaps || [];
     for (const llmGap of llmGaps) {
-      // 이미 있는 갭은 건너뛰기
+      // Skip already existing gaps
       if (!knowledgeGaps.find((g) => g.concept === llmGap.concept)) {
         knowledgeGaps.push(llmGap);
       }
@@ -357,7 +357,7 @@ export class GenerateLearningPathUseCase {
   }
 
   /**
-   * Fallback: 기존 링크 기반 알고리즘
+   * Fallback: Legacy link-based algorithm
    */
   private async executeFallback(
     goalNote: NoteData,
@@ -374,7 +374,7 @@ export class GenerateLearningPathUseCase {
   }> {
     const warnings: string[] = [];
 
-    // 링크 기반으로 관련 노트 찾기
+    // Find related notes using link structure
     const targetNoteIds = this.findPathToGoal(allNotes, goalNote.id);
     const targetNotes = targetNoteIds
       .map((id) => noteMap.get(id))
@@ -393,12 +393,12 @@ export class GenerateLearningPathUseCase {
         knowledgeGaps = llmResult.knowledgeGaps;
         levels = [sortedNodeIds];
       } else {
-        warnings.push(`LLM 분석 실패: ${llmResult.error}`);
+        warnings.push(`LLM analysis failed: ${llmResult.error}`);
         const linkResult = this.analyzeWithLinks(targetNoteIds, allNotes);
         sortedNodeIds = linkResult.sortedIds;
         levels = linkResult.levels;
         if (linkResult.hasCycle) {
-          warnings.push('순환 의존성 발견. 일부 순서가 임의적일 수 있습니다.');
+          warnings.push('Circular dependency detected. Some ordering may be arbitrary.');
         }
       }
     } else {
@@ -406,7 +406,7 @@ export class GenerateLearningPathUseCase {
       sortedNodeIds = linkResult.sortedIds;
       levels = linkResult.levels;
       if (linkResult.hasCycle) {
-        warnings.push('순환 의존성 발견. 일부 순서가 임의적일 수 있습니다.');
+        warnings.push('Circular dependency detected. Some ordering may be arbitrary.');
       }
     }
 
@@ -421,7 +421,7 @@ export class GenerateLearningPathUseCase {
   }
 
   /**
-   * LLM을 사용한 학습 경로 분석
+   * Learning path analysis using LLM
    */
   private async analyzewithLLM(
     goalNote: NoteData,
@@ -471,7 +471,7 @@ export class GenerateLearningPathUseCase {
   }
 
   /**
-   * 링크 기반 학습 경로 분석 (fallback)
+   * Link-based learning path analysis (fallback)
    */
   private analyzeWithLinks(
     targetNoteIds: string[],
@@ -508,7 +508,7 @@ export class GenerateLearningPathUseCase {
   }
 
   /**
-   * 시작 노트들로부터 연결된 노트들을 탐색하여 확장
+   * Expand by traversing connected notes from start notes
    */
   private expandFromStartNotes(notes: NoteData[], startIds: string[]): string[] {
     const noteMap = new Map(notes.map((n) => [n.id, n]));
@@ -537,13 +537,13 @@ export class GenerateLearningPathUseCase {
   }
 
   /**
-   * 목표 노트의 선수 지식(prerequisites) 찾기
+   * Find prerequisites for the goal note
    *
-   * 알고리즘: 목표 노트가 링크하는 노트들을 재귀적으로 탐색
-   * A → B 링크 = "A가 B를 참조" = "A를 이해하려면 B를 먼저 알아야 함"
-   * 따라서 forward links를 따라가며 선수 지식을 찾음
+   * Algorithm: Recursively traverse notes linked by the goal note
+   * A → B link = "A references B" = "Need to know B first to understand A"
+   * Therefore, follow forward links to find prerequisites
    *
-   * @param maxDepth - 최대 탐색 깊이 (기본값: 5, 지식 Gap 분석을 위해 넓게 탐색)
+   * @param maxDepth - Maximum traversal depth (default: 5, wide search for knowledge gap analysis)
    */
   private findPathToGoal(
     notes: NoteData[],
@@ -591,10 +591,10 @@ export class GenerateLearningPathUseCase {
   }
 
   /**
-   * 노트들의 링크 구조에서 의존 관계 추출
+   * Extract dependencies from note link structure
    *
-   * A -> B 링크는 "A를 학습한 후 B로 진행"을 의미
-   * 즉, A가 B의 선행조건 (A is prerequisite for B)
+   * A -> B link means "proceed to B after learning A"
+   * In other words, A is prerequisite for B
    */
   private extractDependencies(
     notes: NoteData[],
@@ -623,7 +623,7 @@ export class GenerateLearningPathUseCase {
   }
 
   /**
-   * 순환 의존성이 있을 때 fallback 정렬
+   * Fallback sorting when circular dependency exists
    */
   private sortWithCycleFallback(
     nodeIds: string[],
@@ -687,7 +687,7 @@ export class GenerateLearningPathUseCase {
   }
 
   /**
-   * 유니크 ID 생성
+   * Generate unique ID
    */
   private generateId(): string {
     return `path-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

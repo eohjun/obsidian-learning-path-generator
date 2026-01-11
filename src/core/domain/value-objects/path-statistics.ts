@@ -1,6 +1,6 @@
 /**
  * PathStatistics Value Object
- * 학습 경로 통계를 나타내는 불변 값 객체
+ * Immutable value object representing learning path statistics
  */
 
 export interface PathStatisticsData {
@@ -125,7 +125,7 @@ export class PathStatistics {
   toDisplayString(): string {
     const percent = this.progressPercent();
     const hours = this.estimatedHours();
-    return `${this._completedNodes}/${this._totalNodes} (${percent}%) - 예상 ${hours}시간`;
+    return `${this._completedNodes}/${this._totalNodes} (${percent}%) - Est. ${hours}h`;
   }
 
   toProgressBar(width: number = 20): string {

@@ -1,6 +1,6 @@
 /**
  * KnowledgeGap Entity
- * 볼트에 존재하지 않지만 학습에 필요한 지식을 나타내는 엔티티
+ * Entity representing knowledge required for learning but not present in the vault
  */
 
 export interface KnowledgeGapData {

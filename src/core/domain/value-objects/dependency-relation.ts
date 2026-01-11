@@ -1,11 +1,11 @@
 /**
  * DependencyRelation Value Object
- * 노트 간 의존 관계를 나타내는 불변 값 객체
+ * Immutable value object representing dependency relations between notes
  *
  * Types:
- * - PREREQUISITE: 선행 학습 필수 (A를 알아야 B를 이해)
- * - RELATED: 관련 있음 (함께 학습하면 좋음)
- * - OPTIONAL: 선택적 (도움이 될 수 있음)
+ * - PREREQUISITE: Must learn first (A must be known to understand B)
+ * - RELATED: Related (good to learn together)
+ * - OPTIONAL: Optional (may be helpful)
  */
 
 export enum DependencyType {
@@ -180,11 +180,11 @@ export class DependencyRelation {
   private getTypeLabel(): string {
     switch (this._type) {
       case DependencyType.PREREQUISITE:
-        return '선행';
+        return 'Prerequisite';
       case DependencyType.RELATED:
-        return '관련';
+        return 'Related';
       case DependencyType.OPTIONAL:
-        return '선택';
+        return 'Optional';
     }
   }
 }

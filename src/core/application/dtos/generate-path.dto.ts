@@ -1,88 +1,88 @@
 /**
  * GenerateLearningPath Use Case DTOs
- * 학습 경로 생성 요청/응답 데이터 전송 객체
+ * Learning path generation request/response data transfer objects
  */
 
 import { LearningPathData, LearningNodeData, KnowledgeGapItem } from '../../domain';
 
 export interface GeneratePathRequest {
   /**
-   * 학습 경로 이름
+   * Learning path name
    */
   name: string;
 
   /**
-   * 시작 노트 ID들 (선택 사항)
-   * 지정하지 않으면 연결된 노트들에서 자동 탐색
+   * Start note IDs (optional)
+   * If not specified, automatically traverses from connected notes
    */
   startNoteIds?: string[];
 
   /**
-   * 목표 노트 ID (선택 사항)
-   * 특정 목표로 향하는 경로를 생성
+   * Goal note ID (optional)
+   * Generate path toward a specific goal
    */
   goalNoteId?: string;
 
   /**
-   * 대상 폴더 경로 (선택 사항)
-   * 특정 폴더 내의 노트들로 제한
+   * Target folder path (optional)
+   * Restrict to notes within a specific folder
    */
   folder?: string;
 
   /**
-   * 제외할 폴더들
+   * Folders to exclude
    */
   excludeFolders?: string[];
 
   /**
-   * 경로 설명
+   * Path description
    */
   description?: string;
 
   /**
-   * LLM을 사용한 의존성 분석 여부
+   * Whether to use LLM for dependency analysis
    */
   useLLMAnalysis?: boolean;
 }
 
 export interface GeneratePathResponse {
   /**
-   * 성공 여부
+   * Success status
    */
   success: boolean;
 
   /**
-   * 생성된 학습 경로 데이터
+   * Generated learning path data
    */
   path?: LearningPathData;
 
   /**
-   * 경로 내 노드들
+   * Nodes in the path
    */
   nodes?: LearningNodeData[];
 
   /**
-   * 레벨별 노드 그룹 (병렬 학습 가능)
+   * Node groups by level (parallel learning possible)
    */
   levels?: string[][];
 
   /**
-   * 에러 메시지
+   * Error message
    */
   error?: string;
 
   /**
-   * 경고 메시지들 (순환 의존성 등)
+   * Warning messages (circular dependencies, etc.)
    */
   warnings?: string[];
 
   /**
-   * 지식 갭 - 목표 이해에 필요하지만 볼트에 없는 개념들
+   * Knowledge gaps - concepts needed to understand goal but missing from vault
    */
   knowledgeGaps?: KnowledgeGapItem[];
 
   /**
-   * 전체 관련 노트 수 (분석 범위)
+   * Total number of analyzed notes (analysis scope)
    */
   totalAnalyzedNotes?: number;
 }

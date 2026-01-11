@@ -1,8 +1,8 @@
 /**
  * UpdateProgressUseCase
- * 학습 진행 상태 업데이트 유스케이스
+ * Learning progress update use case
  *
- * 개별 노드의 학습 상태를 업데이트하고 통계를 반환합니다.
+ * Updates learning status of individual nodes and returns statistics.
  */
 
 import {
@@ -92,7 +92,7 @@ export class UpdateProgressUseCase {
   }
 
   /**
-   * MasteryLevelValue를 MasteryLevel 객체로 변환
+   * Convert MasteryLevelValue to MasteryLevel object
    */
   private valueToMasteryLevel(value: MasteryLevelValue): MasteryLevel {
     switch (value) {
@@ -108,7 +108,7 @@ export class UpdateProgressUseCase {
   }
 
   /**
-   * 다음 학습 추천 노드들 반환
+   * Return next recommended nodes for learning
    */
   private getNextRecommendedNodes(path: LearningPath): string[] {
     // Get first incomplete node

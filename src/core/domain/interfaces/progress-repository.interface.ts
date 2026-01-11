@@ -1,8 +1,8 @@
 /**
  * IProgressRepository Interface
- * 학습 진행 상태 저장소 인터페이스
+ * Learning progress status repository interface
  *
- * Adapters 레이어에서 frontmatter 또는 별도 저장소로 구현
+ * Implemented with frontmatter or separate storage in the Adapters layer
  */
 
 import { MasteryLevel } from '../value-objects/mastery-level';
@@ -16,42 +16,42 @@ export interface ProgressData {
 
 export interface IProgressRepository {
   /**
-   * 노트의 진행 상태 조회
+   * Get note progress status
    */
   getProgress(noteId: string): Promise<MasteryLevel>;
 
   /**
-   * 노트의 진행 상태 업데이트
+   * Update note progress status
    */
   updateProgress(noteId: string, level: MasteryLevel): Promise<void>;
 
   /**
-   * 노트의 마지막 학습 시간 조회
+   * Get last studied time of note
    */
   getLastStudied(noteId: string): Promise<Date | null>;
 
   /**
-   * 노트의 마지막 학습 시간 업데이트
+   * Update last studied time of note
    */
   updateLastStudied(noteId: string, date: Date): Promise<void>;
 
   /**
-   * 학습 완료 횟수 증가
+   * Increment study completion count
    */
   incrementStudyCount(noteId: string): Promise<void>;
 
   /**
-   * 여러 노트의 진행 상태 일괄 조회
+   * Bulk get progress status for multiple notes
    */
   getBulkProgress(noteIds: string[]): Promise<Map<string, MasteryLevel>>;
 
   /**
-   * 진행 상태 초기화
+   * Reset progress status
    */
   resetProgress(noteId: string): Promise<void>;
 
   /**
-   * 모든 진행 상태 초기화
+   * Reset all progress status
    */
   resetAllProgress(): Promise<void>;
 }

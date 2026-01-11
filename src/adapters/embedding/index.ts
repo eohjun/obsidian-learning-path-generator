@@ -1,9 +1,9 @@
 /**
  * Embedding Adapters
  *
- * Vault Embeddings 플러그인을 활용한 임베딩 어댑터 모음.
- * 노트 임베딩은 Vault Embeddings가 담당하고,
- * 이 플러그인은 쿼리 임베딩 생성 및 유사도 검색만 수행.
+ * Collection of embedding adapters utilizing Vault Embeddings plugin.
+ * Note embeddings are handled by Vault Embeddings,
+ * this plugin only generates query embeddings and performs similarity search.
  */
 
 export { OpenAIEmbeddingProvider } from './openai-embedding-provider';

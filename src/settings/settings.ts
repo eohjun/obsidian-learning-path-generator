@@ -1,6 +1,6 @@
 /**
  * Plugin Settings
- * 학습 경로 생성기 플러그인 설정
+ * Learning Path Generator plugin settings
  */
 
 import { AIProviderType } from '../core/domain';
@@ -14,10 +14,10 @@ export interface LearningPathSettings {
     enabled: boolean;
   };
 
-  // Embedding Settings (쿼리 임베딩용)
-  // 노트 임베딩은 Vault Embeddings 플러그인이 담당
+  // Embedding Settings (for query embeddings)
+  // Note embeddings are managed by Vault Embeddings plugin
   embedding: {
-    /** 쿼리 임베딩용 OpenAI API 키 (설정되지 않으면 AI 설정의 OpenAI 키 사용) */
+    /** OpenAI API key for query embeddings (uses OpenAI key from AI settings if not set) */
     openaiApiKey?: string;
   };
 
@@ -46,8 +46,8 @@ export const DEFAULT_SETTINGS: LearningPathSettings = {
     enabled: true,
   },
   embedding: {
-    // 쿼리 임베딩용 API 키 (OpenAI)
-    // AI 설정의 OpenAI 키가 있으면 그것을 사용
+    // API key for query embeddings (OpenAI)
+    // Uses OpenAI key from AI settings if available
   },
   storagePath: '_learning-paths',
   masteryLevelKey: 'learning_mastery',

@@ -1,8 +1,8 @@
 /**
  * ISemanticSearchService Interface
- * 의미 기반 노트 검색을 위한 인터페이스
+ * Interface for semantic-based note search
  *
- * PKM Note Recommender 등 외부 임베딩 서비스와 연동하기 위한 포트
+ * Port for integration with external embedding services like PKM Note Recommender
  */
 
 export interface SemanticSearchResult {
@@ -13,16 +13,16 @@ export interface SemanticSearchResult {
 
 export interface ISemanticSearchService {
   /**
-   * 서비스 사용 가능 여부 확인
+   * Check service availability
    */
   isAvailable(): boolean;
 
   /**
-   * 텍스트 내용과 유사한 노트 검색
+   * Search for notes similar to text content
    *
-   * @param content - 검색할 텍스트 내용 (개념, 키워드 등)
-   * @param options - 검색 옵션
-   * @returns 유사도 순으로 정렬된 노트 목록
+   * @param content - Text content to search (concepts, keywords, etc.)
+   * @param options - Search options
+   * @returns List of notes sorted by similarity
    */
   findSimilarToContent(
     content: string,
@@ -34,11 +34,11 @@ export interface ISemanticSearchService {
   ): Promise<SemanticSearchResult[]>;
 
   /**
-   * 여러 개념에 대해 일괄 검색
+   * Batch search for multiple concepts
    *
-   * @param concepts - 검색할 개념 목록
-   * @param options - 검색 옵션
-   * @returns 개념별 검색 결과 맵
+   * @param concepts - List of concepts to search
+   * @param options - Search options
+   * @returns Map of search results per concept
    */
   findNotesForConcepts(
     concepts: string[],

@@ -1,6 +1,6 @@
 /**
  * Base LLM Provider
- * 모든 LLM Provider의 공통 기능을 제공하는 추상 클래스
+ * Abstract class providing common functionality for all LLM Providers
  */
 
 import { requestUrl, RequestUrlParam } from 'obsidian';
@@ -70,20 +70,20 @@ export abstract class BaseProvider implements ILLMProvider {
     if (error instanceof Error) {
       const message = error.message.toLowerCase();
       if (message.includes('401') || message.includes('unauthorized') || message.includes('invalid api key')) {
-        return new Error('인증 실패: API 키가 유효하지 않습니다.');
+        return new Error('Authentication failed: Invalid API key.');
       }
       if (message.includes('429') || message.includes('rate limit')) {
-        return new Error('요청 제한: 잠시 후 다시 시도해주세요.');
+        return new Error('Rate limit exceeded: Please try again later.');
       }
       if (message.includes('timeout') || message.includes('timed out')) {
-        return new Error('요청 시간 초과: 네트워크 연결을 확인해주세요.');
+        return new Error('Request timeout: Please check your network connection.');
       }
       if (message.includes('500') || message.includes('internal server')) {
-        return new Error('서버 오류: 잠시 후 다시 시도해주세요.');
+        return new Error('Server error: Please try again later.');
       }
       return error;
     }
-    return new Error('알 수 없는 오류가 발생했습니다.');
+    return new Error('An unknown error occurred.');
   }
 
   protected handleError(error: unknown): LLMResponse {
@@ -183,44 +183,44 @@ export abstract class BaseProvider implements ILLMProvider {
 
   private buildDependencyAnalysisPrompt(noteContent: string, linkedNoteContents: string[]): string {
     const linkedContext = linkedNoteContents
-      .map((content, i) => `[연결된 노트 ${i + 1}]\n${content.slice(0, 500)}`)
+      .map((content, i) => `[Linked Note ${i + 1}]\n${content.slice(0, 500)}`)
       .join('\n\n');
 
-    return `다음 노트의 개념적 의존성을 분석해주세요.
+    return `Please analyze the conceptual dependencies of the following note.
 
-[분석 대상 노트]
+[Target Note]
 ${noteContent.slice(0, 2000)}
 
-${linkedContext ? `[연결된 노트들]\n${linkedContext}` : ''}
+${linkedContext ? `[Linked Notes]\n${linkedContext}` : ''}
 
-JSON 형식으로 답변:
+Respond in JSON format:
 \`\`\`json
 {
   "dependencies": [
-    {"source": "개념A", "target": "개념B", "type": "prerequisite", "confidence": 0.8}
+    {"source": "ConceptA", "target": "ConceptB", "type": "prerequisite", "confidence": 0.8}
   ],
-  "concepts": ["추출된 핵심 개념들"],
+  "concepts": ["extracted core concepts"],
   "confidence": 0.85
 }
 \`\`\``;
   }
 
   private buildKnowledgeGapPrompt(pathDescription: string, existingConcepts: string[]): string {
-    return `학습 경로를 분석하여 지식 갭을 식별해주세요.
+    return `Please analyze the learning path and identify knowledge gaps.
 
-[학습 경로]
+[Learning Path]
 ${pathDescription}
 
-[볼트에 존재하는 개념들]
+[Concepts in Vault]
 ${existingConcepts.join(', ')}
 
-JSON 형식으로 답변:
+Respond in JSON format:
 \`\`\`json
 {
   "gaps": [
-    {"concept": "누락된 개념", "reason": "필요한 이유", "priority": "high"}
+    {"concept": "missing concept", "reason": "why it's needed", "priority": "high"}
   ],
-  "summary": "분석 요약"
+  "summary": "analysis summary"
 }
 \`\`\``;
   }
@@ -228,17 +228,17 @@ JSON 형식으로 답변:
   private buildLearningOrderPrompt(concepts: string[], dependencies: DependencyRelation[]): string {
     const depList = dependencies.map((d) => `${d.sourceId} → ${d.targetId}`).join('\n');
 
-    return `다음 개념들의 최적 학습 순서를 제안해주세요.
+    return `Please suggest the optimal learning order for the following concepts.
 
-[개념들]
+[Concepts]
 ${concepts.join(', ')}
 
-[현재 파악된 의존성]
-${depList || '없음'}
+[Known Dependencies]
+${depList || 'None'}
 
-JSON 배열로 학습 순서 답변:
+Respond with a JSON array of learning order:
 \`\`\`json
-["첫 번째 학습할 개념", "두 번째", ...]
+["first concept to learn", "second", ...]
 \`\`\``;
   }
 
@@ -252,105 +252,105 @@ JSON 배열로 학습 순서 답변:
 
     const noteTitles = relatedNotes.map((n) => n.title).join(', ');
 
-    return `당신은 학습 경로를 설계하는 교육 전문가입니다.
+    return `You are an educational expert who designs learning paths.
 
-## 목표
-"${goalNote.title}" 노트를 완전히 이해하기 위한 최적의 학습 순서를 제안하고,
-**이 주제를 깊이 이해하는 데 필요하지만 현재 볼트에 없는 지식 갭을 식별**해주세요.
+## Goal
+Suggest the optimal learning order to fully understand the "${goalNote.title}" note,
+and **identify knowledge gaps that are necessary for deep understanding but not currently in the vault**.
 
-## 목표 노트 내용
+## Goal Note Content
 ${goalNote.content.slice(0, 2000)}
 
-## 관련 노트들 (현재 볼트에 있는 노트)
+## Related Notes (currently in vault)
 ${notesContext}
 
-## 분석 요청
-위 노트들을 분석하여 다음을 JSON 형식으로 답변해주세요:
+## Analysis Request
+Analyze the above notes and respond in JSON format:
 
 \`\`\`json
 {
-  "learningOrder": ["먼저 학습할 노트", "그 다음 노트", ..., "${goalNote.title}"],
+  "learningOrder": ["first note to learn", "next note", ..., "${goalNote.title}"],
   "dependencies": [
-    {"from": "선행 노트", "to": "후행 노트", "reason": "이유"}
+    {"from": "prerequisite note", "to": "dependent note", "reason": "reason"}
   ],
   "estimatedMinutes": {
-    "노트제목": 예상학습시간(분)
+    "noteTitle": estimatedMinutes
   },
   "knowledgeGaps": [
     {
-      "concept": "누락된 개념/주제명",
-      "reason": "왜 이 개념이 필요한지",
+      "concept": "missing concept/topic",
+      "reason": "why this concept is needed",
       "priority": "high|medium|low",
-      "suggestedResources": ["학습 추천 자료 (책, 강의, 키워드 등)"]
+      "suggestedResources": ["recommended resources (books, courses, keywords, etc.)"]
     }
   ]
 }
 \`\`\`
 
-## 중요 규칙
+## Important Rules
 
-### 학습 순서 (learningOrder)
-1. 기초 개념부터 심화 개념 순으로 정렬
-2. 목표 노트("${goalNote.title}")는 반드시 마지막에 위치
-3. 관련 노트 중 목표 달성에 불필요한 노트는 제외 가능
-4. 예상 학습 시간은 노트 복잡도에 따라 5-60분 범위
+### Learning Order (learningOrder)
+1. Sort from foundational concepts to advanced concepts
+2. Goal note ("${goalNote.title}") must be placed last
+3. Related notes unnecessary for goal achievement can be excluded
+4. Estimated learning time ranges from 5-60 minutes based on note complexity
 
-### 지식 갭 분석 (knowledgeGaps) - 매우 중요!
-1. **목표 노트의 내용을 깊이 이해하는 데 필수적이지만, 현재 볼트에 없는 개념을 식별**
-2. 현재 볼트에 있는 노트 목록: ${noteTitles}
-3. 지식 갭 예시:
-   - 목표 노트가 "양자역학의 측정 문제"인데 볼트에 "확률론적 해석" 노트가 없다면 → 갭
-   - 목표 노트가 "인공지능 윤리"인데 볼트에 "트롤리 딜레마" 노트가 없다면 → 갭
-4. priority 기준:
-   - high: 이 개념 없이는 목표 노트 이해가 어려움
-   - medium: 이해에 도움이 되지만 필수는 아님
-   - low: 심화 학습을 위해 알면 좋은 개념
-5. suggestedResources: 검색 키워드, 관련 도서, 온라인 강의 등 구체적 학습 자료 제안`;
+### Knowledge Gap Analysis (knowledgeGaps) - Very Important!
+1. **Identify concepts essential for deep understanding of the goal note but not currently in the vault**
+2. Notes currently in vault: ${noteTitles}
+3. Knowledge gap examples:
+   - If goal note is "Measurement Problem in Quantum Mechanics" but vault lacks "Probabilistic Interpretation" note → gap
+   - If goal note is "AI Ethics" but vault lacks "Trolley Problem" note → gap
+4. Priority criteria:
+   - high: Understanding the goal note is difficult without this concept
+   - medium: Helpful for understanding but not essential
+   - low: Good to know for advanced learning
+5. suggestedResources: Suggest specific learning materials like search keywords, related books, online courses`;
   }
 
   private buildConceptExtractionPrompt(goalNote: { title: string; content: string }): string {
-    return `당신은 지식 그래프와 학습 설계 전문가입니다.
+    return `You are an expert in knowledge graphs and learning design.
 
-## 목표
-"${goalNote.title}" 노트를 완전히 이해하기 위해 **반드시 알아야 할 선수 개념(prerequisite concepts)**을 추출해주세요.
+## Goal
+Extract **prerequisite concepts that must be known** to fully understand the "${goalNote.title}" note.
 
-## 노트 내용
+## Note Content
 ${goalNote.content.slice(0, 3000)}
 
-## 분석 요청
-이 노트의 내용을 깊이 이해하기 위해 필요한 배경 지식과 선수 개념을 JSON 형식으로 답변해주세요:
+## Analysis Request
+Please respond in JSON format with background knowledge and prerequisite concepts needed to deeply understand this note:
 
 \`\`\`json
 {
-  "mainTopic": "이 노트가 다루는 핵심 주제 (한 문장)",
+  "mainTopic": "The core topic this note covers (one sentence)",
   "prerequisites": [
     {
-      "concept": "선수 개념 이름",
-      "description": "왜 이 개념이 필요한지 (1-2문장)",
+      "concept": "prerequisite concept name",
+      "description": "why this concept is needed (1-2 sentences)",
       "importance": "essential|helpful|optional"
     }
   ],
-  "keywords": ["의미 검색에 활용할 관련 키워드들"]
+  "keywords": ["related keywords for semantic search"]
 }
 \`\`\`
 
-## 중요 규칙
-1. **선수 개념(prerequisites)**:
-   - essential: 이 개념 없이는 노트 내용을 이해하기 어려움
-   - helpful: 이해에 도움이 되지만 필수는 아님
-   - optional: 심화 학습을 위한 관련 개념
+## Important Rules
+1. **Prerequisites**:
+   - essential: Understanding the note content is difficult without this concept
+   - helpful: Helps with understanding but not essential
+   - optional: Related concepts for advanced learning
 
-2. **구체적으로 추출**:
-   - "철학" 같은 광범위한 개념 대신 "플라톤의 이데아론", "칸트의 선험적 종합" 등 구체적인 개념
-   - "프로그래밍" 대신 "재귀 함수", "트리 자료구조" 등 구체적인 개념
+2. **Be Specific**:
+   - Instead of broad concepts like "philosophy", use specific ones like "Plato's Theory of Forms", "Kant's Synthetic A Priori"
+   - Instead of "programming", use specific concepts like "recursive functions", "tree data structures"
 
-3. **키워드(keywords)**:
-   - 노트 검색에 활용할 수 있는 구체적인 단어/구문
-   - 유사 개념, 관련 용어 포함
+3. **Keywords**:
+   - Specific words/phrases that can be used for note search
+   - Include similar concepts and related terms
 
-4. **개수 제한**:
-   - prerequisites: 3-10개 (가장 중요한 것만)
-   - keywords: 5-15개`;
+4. **Quantity Limits**:
+   - prerequisites: 3-10 (only the most important)
+   - keywords: 5-15`;
   }
 
   // ============================================

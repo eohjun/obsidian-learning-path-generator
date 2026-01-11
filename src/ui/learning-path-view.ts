@@ -1,6 +1,6 @@
 /**
  * LearningPathView
- * 학습 경로를 표시하는 사이드바 뷰
+ * Sidebar view for displaying learning paths
  */
 
 import { ItemView, WorkspaceLeaf, setIcon, Notice } from 'obsidian';
@@ -47,7 +47,7 @@ export class LearningPathView extends ItemView {
   }
 
   getDisplayText(): string {
-    return '학습 경로';
+    return 'Learning Path';
   }
 
   getIcon(): string {
@@ -67,7 +67,7 @@ export class LearningPathView extends ItemView {
   }
 
   /**
-   * 학습 경로 표시
+   * Display learning path
    */
   async displayPath(path: LearningPath): Promise<void> {
     this.currentPath = path;
@@ -75,7 +75,7 @@ export class LearningPathView extends ItemView {
   }
 
   /**
-   * 뷰 새로고침
+   * Refresh view
    */
   async refresh(): Promise<void> {
     const container = this.containerEl.children[1];
@@ -91,7 +91,7 @@ export class LearningPathView extends ItemView {
   }
 
   /**
-   * 빈 상태 렌더링
+   * Render empty state
    */
   private renderEmptyState(container: Element): void {
     const emptyEl = container.createDiv({ cls: 'learning-path-empty' });
@@ -99,20 +99,20 @@ export class LearningPathView extends ItemView {
     const iconEl = emptyEl.createDiv({ cls: 'learning-path-empty-icon' });
     setIcon(iconEl, 'route');
 
-    emptyEl.createEl('h3', { text: '학습 경로가 없습니다' });
+    emptyEl.createEl('h3', { text: 'No Learning Path' });
     emptyEl.createEl('p', {
-      text: '노트를 선택하고 학습 경로를 생성하세요.',
+      text: 'Select a note and generate a learning path.',
     });
 
     const createBtn = emptyEl.createEl('button', {
       cls: 'mod-cta',
-      text: '새 학습 경로 생성',
+      text: 'Create New Learning Path',
     });
     createBtn.addEventListener('click', () => this.showCreateDialog());
   }
 
   /**
-   * 학습 경로 렌더링
+   * Render learning path
    */
   private renderPath(container: Element, path: LearningPath): void {
     // Header
@@ -141,7 +141,7 @@ export class LearningPathView extends ItemView {
   }
 
   /**
-   * 헤더 렌더링
+   * Render header
    */
   private renderHeader(container: Element, path: LearningPath): void {
     const titleEl = container.createDiv({ cls: 'learning-path-title' });
@@ -156,7 +156,7 @@ export class LearningPathView extends ItemView {
     // New path button
     const newPathBtn = actionsEl.createEl('button', {
       cls: 'learning-path-menu-btn clickable-icon',
-      attr: { 'aria-label': '새 학습 경로 생성' },
+      attr: { 'aria-label': 'Create new learning path' },
     });
     setIcon(newPathBtn, 'plus');
     newPathBtn.addEventListener('click', () => this.showCreateDialog());
@@ -164,7 +164,7 @@ export class LearningPathView extends ItemView {
     // Delete path button
     const deleteBtn = actionsEl.createEl('button', {
       cls: 'learning-path-menu-btn clickable-icon',
-      attr: { 'aria-label': '경로 삭제' },
+      attr: { 'aria-label': 'Delete path' },
     });
     setIcon(deleteBtn, 'trash-2');
     deleteBtn.addEventListener('click', () => this.deletePath(path));
@@ -172,14 +172,14 @@ export class LearningPathView extends ItemView {
     // Close button (hide without deleting)
     const closeBtn = actionsEl.createEl('button', {
       cls: 'learning-path-menu-btn clickable-icon',
-      attr: { 'aria-label': '닫기 (삭제하지 않음)' },
+      attr: { 'aria-label': 'Close (without deleting)' },
     });
     setIcon(closeBtn, 'x');
     closeBtn.addEventListener('click', () => this.closePath());
   }
 
   /**
-   * 경로 닫기 (삭제하지 않고 뷰만 비움)
+   * Close path (clear view without deleting)
    */
   private async closePath(): Promise<void> {
     this.currentPath = null;
@@ -187,8 +187,8 @@ export class LearningPathView extends ItemView {
   }
 
   /**
-   * 현재 경로 비우기 (외부에서 호출 가능)
-   * main.ts에서 다른 노트의 경로를 로드하기 전에 호출
+   * Clear current path (can be called externally)
+   * Called from main.ts before loading a different note's path
    */
   async clearCurrentPath(): Promise<void> {
     this.currentPath = null;
@@ -196,7 +196,7 @@ export class LearningPathView extends ItemView {
   }
 
   /**
-   * 로딩 상태 표시 (외부에서 호출 가능)
+   * Show loading state (can be called externally)
    */
   async showLoadingState(goalNoteId: string): Promise<void> {
     const container = this.containerEl.children[1];
@@ -206,7 +206,7 @@ export class LearningPathView extends ItemView {
   }
 
   /**
-   * 오류 상태 표시 (외부에서 호출 가능)
+   * Show error state (can be called externally)
    */
   async showErrorState(message: string): Promise<void> {
     const container = this.containerEl.children[1];
@@ -216,11 +216,11 @@ export class LearningPathView extends ItemView {
   }
 
   /**
-   * 경로 삭제 (실제 JSON 파일 삭제)
+   * Delete path (delete actual JSON file)
    */
   private async deletePath(path: LearningPath): Promise<void> {
     if (!this.dependencies) {
-      new Notice('오류: Dependencies not set');
+      new Notice('Error: Dependencies not set');
       return;
     }
 
@@ -231,36 +231,36 @@ export class LearningPathView extends ItemView {
       // Clear current path and show empty state
       this.currentPath = null;
       await this.refresh();
-      new Notice('학습 경로가 삭제되었습니다');
+      new Notice('Learning path deleted');
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : '알 수 없는 오류';
-      new Notice(`삭제 실패: ${errorMsg}`);
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      new Notice(`Delete failed: ${errorMsg}`);
       console.error('[LearningPathView] Delete failed:', error);
     }
   }
 
   /**
-   * 통계 렌더링
+   * Render statistics
    */
   private renderStatistics(container: Element, stats: PathStatistics): void {
     const items = [
       {
-        label: '완료',
+        label: 'Completed',
         value: stats.completedNodes.toString(),
         icon: 'check-circle',
       },
       {
-        label: '진행 중',
+        label: 'In Progress',
         value: stats.inProgressNodes.toString(),
         icon: 'clock',
       },
       {
-        label: '남은 노드',
+        label: 'Remaining',
         value: stats.remainingNodes().toString(),
         icon: 'circle',
       },
       {
-        label: '예상 시간',
+        label: 'Est. Time',
         value: `${stats.estimatedHours()}h`,
         icon: 'timer',
       },
@@ -284,13 +284,13 @@ export class LearningPathView extends ItemView {
   }
 
   /**
-   * 진행률 바 렌더링
+   * Render progress bar
    */
   private renderProgressBar(container: Element, stats: PathStatistics): void {
     const percent = stats.progressPercent();
 
     const labelEl = container.createDiv({ cls: 'learning-path-progress-label' });
-    labelEl.createSpan({ text: '진행률' });
+    labelEl.createSpan({ text: 'Progress' });
     labelEl.createSpan({ text: `${percent}%` });
 
     const barContainer = container.createDiv({
@@ -307,7 +307,7 @@ export class LearningPathView extends ItemView {
   }
 
   /**
-   * 지식 갭 섹션 렌더링
+   * Render knowledge gaps section
    */
   private renderKnowledgeGaps(
     container: Element,
@@ -320,15 +320,15 @@ export class LearningPathView extends ItemView {
 
     const iconEl = titleEl.createSpan({ cls: 'learning-path-gaps-icon' });
     setIcon(iconEl, gaps.length > 0 ? 'alert-triangle' : 'check-circle');
-    titleEl.createSpan({ text: gaps.length > 0 ? '지식 갭 발견' : '지식 갭 분석' });
+    titleEl.createSpan({ text: gaps.length > 0 ? 'Knowledge Gaps Found' : 'Knowledge Gap Analysis' });
 
     // Stats
     const statsEl = headerEl.createDiv({ cls: 'learning-path-gaps-stats' });
     if (totalAnalyzedNotes > 0) {
       statsEl.createSpan({
         text: gaps.length > 0
-          ? `${totalAnalyzedNotes}개 노트 분석 → ${gaps.length}개 갭 발견`
-          : `${totalAnalyzedNotes}개 노트 분석 완료`,
+          ? `${totalAnalyzedNotes} notes analyzed → ${gaps.length} gaps found`
+          : `${totalAnalyzedNotes} notes analyzed`,
         cls: 'learning-path-gaps-count'
       });
     }
@@ -338,8 +338,8 @@ export class LearningPathView extends ItemView {
       const emptyEl = container.createDiv({ cls: 'learning-path-gaps-empty' });
       emptyEl.createEl('p', {
         text: totalAnalyzedNotes > 0
-          ? '✅ 발견된 지식 갭이 없습니다. 현재 볼트의 노트들로 충분히 학습할 수 있습니다.'
-          : '⚠️ 지식 갭 분석이 수행되지 않았습니다. AI 분석이 활성화되어 있는지 확인하세요.',
+          ? 'No knowledge gaps found. Your vault notes are sufficient for learning.'
+          : 'Knowledge gap analysis was not performed. Check if AI analysis is enabled.',
         cls: 'learning-path-gaps-empty-text'
       });
       return;
@@ -361,7 +361,7 @@ export class LearningPathView extends ItemView {
 
       // Priority badge
       const badgeEl = gapEl.createSpan({ cls: 'learning-path-gap-badge' });
-      const priorityText = gap.priority === 'high' ? '필수' : gap.priority === 'medium' ? '권장' : '선택';
+      const priorityText = gap.priority === 'high' ? 'Required' : gap.priority === 'medium' ? 'Recommended' : 'Optional';
       badgeEl.setText(priorityText);
 
       // Content
@@ -384,7 +384,7 @@ export class LearningPathView extends ItemView {
       // Resources
       if (gap.suggestedResources && gap.suggestedResources.length > 0) {
         const resourcesEl = contentEl.createDiv({ cls: 'learning-path-gap-resources' });
-        resourcesEl.createSpan({ text: '학습 자료: ', cls: 'learning-path-gap-resources-label' });
+        resourcesEl.createSpan({ text: 'Resources: ', cls: 'learning-path-gap-resources-label' });
         resourcesEl.createSpan({
           text: gap.suggestedResources.join(', '),
           cls: 'learning-path-gap-resources-list'
@@ -395,7 +395,7 @@ export class LearningPathView extends ItemView {
       const actionEl = gapEl.createDiv({ cls: 'learning-path-gap-action' });
       const searchBtn = actionEl.createEl('button', {
         cls: 'learning-path-gap-search-btn clickable-icon',
-        attr: { 'aria-label': `"${gap.concept}" 검색` }
+        attr: { 'aria-label': `Search "${gap.concept}"` }
       });
       setIcon(searchBtn, 'search');
       searchBtn.addEventListener('click', () => {
@@ -407,13 +407,13 @@ export class LearningPathView extends ItemView {
     // Help text
     const helpEl = container.createDiv({ cls: 'learning-path-gaps-help' });
     helpEl.createEl('p', {
-      text: '💡 이 주제들에 대한 노트를 추가하면 학습이 더 완전해집니다.',
+      text: 'Adding notes on these topics will make your learning more complete.',
       cls: 'learning-path-gaps-help-text'
     });
   }
 
   /**
-   * 노드 목록 렌더링
+   * Render node list
    */
   private renderNodes(container: Element, path: LearningPath): void {
     const allNodes = path.nodes;
@@ -442,7 +442,7 @@ export class LearningPathView extends ItemView {
       linkEl.addEventListener('click', () => this.openNote(node));
 
       const metaEl = contentEl.createDiv({ cls: 'learning-path-node-meta' });
-      metaEl.createSpan({ text: `약 ${node.estimatedMinutes}분` });
+      metaEl.createSpan({ text: `~${node.estimatedMinutes} min` });
 
       // Actions
       const actionsEl = nodeEl.createDiv({ cls: 'learning-path-node-actions' });
@@ -453,13 +453,13 @@ export class LearningPathView extends ItemView {
     if (hiddenCount > 0) {
       const moreEl = container.createDiv({ cls: 'learning-path-more-nodes' });
       moreEl.createSpan({
-        text: `... 외 ${hiddenCount}개 노드 (설정에서 표시 수 조정 가능)`,
+        text: `... and ${hiddenCount} more nodes (adjust display count in settings)`,
       });
     }
   }
 
   /**
-   * 노드 상태에 따른 CSS 클래스
+   * Get CSS class based on node status
    */
   private getNodeStatusClass(node: LearningNode): string {
     if (node.isCompleted()) return 'completed';
@@ -468,7 +468,7 @@ export class LearningPathView extends ItemView {
   }
 
   /**
-   * 상태 아이콘 렌더링
+   * Render status icon
    */
   private renderStatusIcon(container: Element, node: LearningNode): void {
     const iconEl = container.createDiv({ cls: 'status-icon' });
@@ -486,7 +486,7 @@ export class LearningPathView extends ItemView {
   }
 
   /**
-   * 노드 액션 버튼 렌더링
+   * Render node action buttons
    */
   private renderNodeActions(
     container: Element,
@@ -496,7 +496,7 @@ export class LearningPathView extends ItemView {
     if (node.isNotStarted()) {
       const startBtn = container.createEl('button', {
         cls: 'learning-path-node-btn',
-        attr: { 'aria-label': '학습 시작' },
+        attr: { 'aria-label': 'Start learning' },
       });
       setIcon(startBtn, 'play');
       startBtn.addEventListener('click', () =>
@@ -505,7 +505,7 @@ export class LearningPathView extends ItemView {
     } else if (node.isInProgress()) {
       const completeBtn = container.createEl('button', {
         cls: 'learning-path-node-btn',
-        attr: { 'aria-label': '완료 표시' },
+        attr: { 'aria-label': 'Mark complete' },
       });
       setIcon(completeBtn, 'check');
       completeBtn.addEventListener('click', () =>
@@ -514,7 +514,7 @@ export class LearningPathView extends ItemView {
     } else {
       const resetBtn = container.createEl('button', {
         cls: 'learning-path-node-btn',
-        attr: { 'aria-label': '다시 학습' },
+        attr: { 'aria-label': 'Study again' },
       });
       setIcon(resetBtn, 'rotate-ccw');
       resetBtn.addEventListener('click', () =>
@@ -524,17 +524,17 @@ export class LearningPathView extends ItemView {
   }
 
   /**
-   * 액션 버튼 렌더링
+   * Render action buttons
    */
   private renderActions(container: Element, path: LearningPath): void {
     if (path.isCompleted()) {
       const celebrateEl = container.createDiv({ cls: 'learning-path-celebrate' });
-      celebrateEl.createEl('h4', { text: '🎉 학습 완료!' });
-      celebrateEl.createEl('p', { text: '모든 노드를 완료했습니다.' });
+      celebrateEl.createEl('h4', { text: 'Learning Complete!' });
+      celebrateEl.createEl('p', { text: 'All nodes completed.' });
 
       const resetBtn = container.createEl('button', {
         cls: 'mod-warning',
-        text: '진행 상태 초기화',
+        text: 'Reset Progress',
       });
       resetBtn.addEventListener('click', () => this.resetAllProgress(path));
     } else {
@@ -542,7 +542,7 @@ export class LearningPathView extends ItemView {
       const currentNode = path.getCurrentNode();
 
       if (currentNode) {
-        continueEl.createEl('span', { text: '다음: ' });
+        continueEl.createEl('span', { text: 'Next: ' });
         const linkEl = continueEl.createEl('a', {
           text: currentNode.title,
           cls: 'internal-link mod-cta',
@@ -553,7 +553,7 @@ export class LearningPathView extends ItemView {
   }
 
   /**
-   * 경로 생성 또는 기존 경로 로드
+   * Create path or load existing path
    */
   private async showCreateDialog(): Promise<void> {
     if (!this.dependencies) {
@@ -565,10 +565,10 @@ export class LearningPathView extends ItemView {
     const activeFile = this.app.workspace.getActiveFile();
     // Hash-based ID for Vault Embeddings compatibility
     const goalNoteId = activeFile ? generateNoteId(activeFile.path) : undefined;
-    const goalNoteName = activeFile?.basename || '새 학습 경로';
+    const goalNoteName = activeFile?.basename || 'New Learning Path';
 
     if (!goalNoteId || !activeFile) {
-      new Notice('활성화된 노트가 없습니다.');
+      new Notice('No active note.');
       return;
     }
 
@@ -584,7 +584,7 @@ export class LearningPathView extends ItemView {
       if (existingPath) {
         // Load existing path
         await this.displayPath(existingPath);
-        new Notice(`기존 학습 경로를 불러왔습니다: ${goalNoteName}`);
+        new Notice(`Loaded existing learning path: ${goalNoteName}`);
         return;
       }
 
@@ -608,19 +608,19 @@ export class LearningPathView extends ItemView {
 
         // Show warnings if any
         if (response.warnings && response.warnings.length > 0) {
-          console.warn('학습 경로 생성 경고:', response.warnings);
+          console.warn('Learning path generation warnings:', response.warnings);
         }
       } else {
-        this.renderErrorState(container, response.error || '학습 경로 생성에 실패했습니다.');
+        this.renderErrorState(container, response.error || 'Failed to generate learning path.');
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
       this.renderErrorState(container, errorMessage);
     }
   }
 
   /**
-   * 로딩 상태 렌더링
+   * Render loading state
    */
   private renderLoadingState(container: Element, pathName: string): void {
     const loadingEl = container.createDiv({ cls: 'learning-path-loading' });
@@ -628,16 +628,16 @@ export class LearningPathView extends ItemView {
     const spinnerEl = loadingEl.createDiv({ cls: 'learning-path-spinner' });
     setIcon(spinnerEl, 'loader-2');
 
-    loadingEl.createEl('h3', { text: '새 학습 경로를 생성 중입니다...' });
-    loadingEl.createEl('p', { text: `목표: ${pathName}` });
+    loadingEl.createEl('h3', { text: 'Generating new learning path...' });
+    loadingEl.createEl('p', { text: `Goal: ${pathName}` });
     loadingEl.createEl('p', {
       cls: 'learning-path-loading-hint',
-      text: 'LLM 분석 중... 잠시만 기다려 주세요.',
+      text: 'Analyzing with LLM... Please wait.',
     });
   }
 
   /**
-   * 에러 상태 렌더링
+   * Render error state
    */
   private renderErrorState(container: Element, errorMessage: string): void {
     container.empty();
@@ -647,23 +647,23 @@ export class LearningPathView extends ItemView {
     const iconEl = errorEl.createDiv({ cls: 'learning-path-error-icon' });
     setIcon(iconEl, 'alert-circle');
 
-    errorEl.createEl('h3', { text: '학습 경로 생성 실패' });
+    errorEl.createEl('h3', { text: 'Failed to Generate Learning Path' });
     errorEl.createEl('p', { text: errorMessage });
 
     const retryBtn = errorEl.createEl('button', {
       cls: 'mod-cta',
-      text: '다시 시도',
+      text: 'Retry',
     });
     retryBtn.addEventListener('click', () => this.showCreateDialog());
 
     const backBtn = errorEl.createEl('button', {
-      text: '돌아가기',
+      text: 'Go Back',
     });
     backBtn.addEventListener('click', () => this.renderEmptyState(container));
   }
 
   /**
-   * 경로 메뉴 표시
+   * Show path menu
    */
   private showPathMenu(e: MouseEvent, path: LearningPath): void {
     // Will be implemented with menu
@@ -671,7 +671,7 @@ export class LearningPathView extends ItemView {
   }
 
   /**
-   * 노트 열기
+   * Open note
    */
   private async openNote(node: LearningNode): Promise<void> {
     const file = this.app.vault.getAbstractFileByPath(node.notePath);
@@ -681,7 +681,7 @@ export class LearningPathView extends ItemView {
   }
 
   /**
-   * 노드 진행 상태 업데이트
+   * Update node progress
    */
   private async updateNodeProgress(
     pathId: string,
@@ -691,13 +691,13 @@ export class LearningPathView extends ItemView {
     console.log('[LearningPathView] updateNodeProgress called:', { pathId, nodeId, newLevel });
 
     if (!this.dependencies) {
-      new Notice('오류: Dependencies not set');
+      new Notice('Error: Dependencies not set');
       console.error('Dependencies not set');
       return;
     }
 
     if (!this.currentPath) {
-      new Notice('오류: 현재 경로가 없습니다');
+      new Notice('Error: No current path');
       console.error('No current path');
       return;
     }
@@ -718,20 +718,20 @@ export class LearningPathView extends ItemView {
         const masteryLevel = this.valueToMasteryLevel(newLevel);
         this.currentPath = this.currentPath.updateNodeProgress(nodeId, masteryLevel);
         await this.refresh();
-        new Notice('학습 상태가 업데이트되었습니다');
+        new Notice('Progress updated');
       } else {
-        new Notice(`진행 상태 업데이트 실패: ${response.error}`);
+        new Notice(`Failed to update progress: ${response.error}`);
         console.error('Failed to update progress:', response.error);
       }
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : '알 수 없는 오류';
-      new Notice(`오류 발생: ${errorMsg}`);
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      new Notice(`Error: ${errorMsg}`);
       console.error('Exception in updateNodeProgress:', error);
     }
   }
 
   /**
-   * MasteryLevelValue를 MasteryLevel 객체로 변환
+   * Convert MasteryLevelValue to MasteryLevel object
    */
   private valueToMasteryLevel(value: MasteryLevelValue): MasteryLevel {
     switch (value) {
@@ -745,7 +745,7 @@ export class LearningPathView extends ItemView {
   }
 
   /**
-   * 전체 진행 상태 초기화
+   * Reset all progress
    */
   private async resetAllProgress(path: LearningPath): Promise<void> {
     const resetPath = path.resetAllProgress();

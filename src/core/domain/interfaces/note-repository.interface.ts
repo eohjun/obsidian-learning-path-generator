@@ -1,8 +1,8 @@
 /**
  * INoteRepository Interface
- * 노트 데이터 접근을 위한 저장소 인터페이스
+ * Repository interface for note data access
  *
- * Adapters 레이어에서 Obsidian API를 사용해 구현
+ * Implemented using Obsidian API in the Adapters layer
  */
 
 export interface NoteData {
@@ -20,32 +20,32 @@ export interface NoteData {
 
 export interface INoteRepository {
   /**
-   * ID로 노트 조회
+   * Get note by ID
    */
   getNote(noteId: string): Promise<NoteData | null>;
 
   /**
-   * 경로로 노트 조회
+   * Get note by path
    */
   getNoteByPath(path: string): Promise<NoteData | null>;
 
   /**
-   * 노트의 아웃링크(연결된 노트들) 조회
+   * Get outlinks (linked notes) of a note
    */
   getLinkedNotes(noteId: string): Promise<NoteData[]>;
 
   /**
-   * 노트의 백링크(이 노트를 참조하는 노트들) 조회
+   * Get backlinks (notes referencing this note)
    */
   getBacklinks(noteId: string): Promise<NoteData[]>;
 
   /**
-   * 특정 태그를 가진 노트들 조회
+   * Get notes with specific tag
    */
   getNotesByTag(tag: string): Promise<NoteData[]>;
 
   /**
-   * 모든 노트 조회 (필터 옵션)
+   * Get all notes (with filter options)
    */
   getAllNotes(options?: {
     folder?: string;
@@ -53,13 +53,13 @@ export interface INoteRepository {
   }): Promise<NoteData[]>;
 
   /**
-   * 노트 존재 여부 확인
+   * Check if note exists
    */
   exists(noteId: string): Promise<boolean>;
 
   /**
-   * 개념/키워드로 노트 검색
-   * 제목과 내용에서 검색하여 관련 노트 찾기
+   * Search notes by concept/keyword
+   * Search in title and content to find related notes
    */
   searchNotes(query: string, options?: {
     excludeFolders?: string[];

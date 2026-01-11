@@ -1,8 +1,8 @@
 /**
  * LearningPath Entity (Aggregate Root)
- * 학습 경로를 나타내는 핵심 엔티티
+ * Core entity representing a learning path
  *
- * 목표 노트까지의 학습 순서와 진행 상태를 관리
+ * Manages learning order and progress state to reach the goal note
  */
 
 import { LearningNode, LearningNodeData } from './learning-node';

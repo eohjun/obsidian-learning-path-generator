@@ -1,6 +1,6 @@
 /**
  * AI Service
- * LLM Provider 관리 및 싱글톤 서비스
+ * LLM Provider management and singleton service
  */
 
 import {
@@ -84,10 +84,10 @@ export class AIService {
   async generate(messages: LLMMessage[], options?: LLMGenerateOptions): Promise<LLMResponse> {
     const provider = this.getCurrentProvider();
     if (!provider) {
-      return { success: false, content: '', error: '프로바이더가 선택되지 않았습니다.' };
+      return { success: false, content: '', error: 'No provider selected.' };
     }
     if (!provider.isAvailable()) {
-      return { success: false, content: '', error: 'API 키가 설정되지 않았습니다.' };
+      return { success: false, content: '', error: 'API key not configured.' };
     }
     return provider.generate(messages, options);
   }
@@ -121,7 +121,7 @@ export class AIService {
   ): Promise<LLMResponse<DependencyAnalysisResult>> {
     const provider = this.getCurrentProvider();
     if (!provider || !provider.isAvailable()) {
-      return { success: false, error: '프로바이더를 사용할 수 없습니다.' };
+      return { success: false, error: 'Provider not available.' };
     }
     return provider.analyzeDependencies(noteContent, linkedNoteContents);
   }
@@ -132,7 +132,7 @@ export class AIService {
   ): Promise<LLMResponse<KnowledgeGapAnalysisResult>> {
     const provider = this.getCurrentProvider();
     if (!provider || !provider.isAvailable()) {
-      return { success: false, error: '프로바이더를 사용할 수 없습니다.' };
+      return { success: false, error: 'Provider not available.' };
     }
     return provider.identifyKnowledgeGaps(pathDescription, existingConcepts);
   }
@@ -143,7 +143,7 @@ export class AIService {
   ): Promise<LLMResponse<string[]>> {
     const provider = this.getCurrentProvider();
     if (!provider || !provider.isAvailable()) {
-      return { success: false, error: '프로바이더를 사용할 수 없습니다.' };
+      return { success: false, error: 'Provider not available.' };
     }
     return provider.suggestLearningOrder(concepts, currentDependencies);
   }
@@ -154,7 +154,7 @@ export class AIService {
   ): Promise<LLMResponse<LearningPathAnalysisResult>> {
     const provider = this.getCurrentProvider();
     if (!provider || !provider.isAvailable()) {
-      return { success: false, error: '프로바이더를 사용할 수 없습니다.' };
+      return { success: false, error: 'Provider not available.' };
     }
     return provider.analyzeNotesForLearningPath(goalNote, relatedNotes);
   }
@@ -164,7 +164,7 @@ export class AIService {
   ): Promise<LLMResponse<ConceptExtractionResult>> {
     const provider = this.getCurrentProvider();
     if (!provider || !provider.isAvailable()) {
-      return { success: false, error: '프로바이더를 사용할 수 없습니다.' };
+      return { success: false, error: 'Provider not available.' };
     }
     return provider.extractPrerequisiteConcepts(goalNote);
   }

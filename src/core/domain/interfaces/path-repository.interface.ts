@@ -1,40 +1,40 @@
 /**
  * IPathRepository Interface
- * 학습 경로 저장소 인터페이스
+ * Learning path repository interface
  *
- * Adapters 레이어에서 JSON 파일 또는 다른 저장소로 구현
+ * Implemented with JSON files or other storage in the Adapters layer
  */
 
 import { LearningPath, LearningPathData } from '../entities/learning-path';
 
 export interface IPathRepository {
   /**
-   * 학습 경로 저장
+   * Save learning path
    */
   save(path: LearningPath): Promise<void>;
 
   /**
-   * ID로 학습 경로 조회
+   * Find learning path by ID
    */
   findById(id: string): Promise<LearningPath | null>;
 
   /**
-   * 목표 노트로 학습 경로 조회
+   * Find learning path by goal note
    */
   findByGoalNote(goalNoteId: string): Promise<LearningPath | null>;
 
   /**
-   * 모든 학습 경로 조회
+   * Get all learning paths
    */
   findAll(): Promise<LearningPath[]>;
 
   /**
-   * 학습 경로 삭제
+   * Delete learning path
    */
   delete(id: string): Promise<void>;
 
   /**
-   * 학습 경로 존재 여부 확인
+   * Check if learning path exists
    */
   exists(id: string): Promise<boolean>;
 }

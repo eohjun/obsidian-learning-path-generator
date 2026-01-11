@@ -1,8 +1,8 @@
 /**
  * OpenAIEmbeddingProvider
  *
- * OpenAI text-embedding-3-small 모델을 사용한 임베딩 프로바이더.
- * Obsidian의 requestUrl을 사용하여 CORS 문제 없이 API 호출.
+ * Embedding provider using OpenAI text-embedding-3-small model.
+ * Uses Obsidian's requestUrl to avoid CORS issues with API calls.
  */
 
 import { requestUrl } from 'obsidian';
@@ -24,21 +24,21 @@ export class OpenAIEmbeddingProvider implements IEmbeddingProvider {
   }
 
   /**
-   * 프로바이더 사용 가능 여부
+   * Check provider availability
    */
   isAvailable(): boolean {
     return !!this.apiKey && this.apiKey.length > 0;
   }
 
   /**
-   * 벡터 차원 수
+   * Get vector dimensions
    */
   getDimensions(): number {
     return this.dimensions;
   }
 
   /**
-   * 단일 텍스트를 벡터로 변환
+   * Convert single text to vector
    */
   async embed(text: string): Promise<number[]> {
     if (!this.isAvailable()) {
@@ -66,13 +66,13 @@ export class OpenAIEmbeddingProvider implements IEmbeddingProvider {
       });
 
       if (response.status !== 200) {
-        // 에러 응답 내용 확인
+        // Check error response content
         const errorBody = response.text || 'No response body';
         console.error('[OpenAIEmbeddingProvider] API error response:', errorBody);
         throw new Error(`OpenAI API error ${response.status}: ${errorBody.slice(0, 200)}`);
       }
 
-      // JSON 파싱 전 응답 확인
+      // Verify response before JSON parsing
       if (!response.text || response.text.length === 0) {
         throw new Error('OpenAI API returned empty response');
       }
@@ -86,20 +86,20 @@ export class OpenAIEmbeddingProvider implements IEmbeddingProvider {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error('[OpenAIEmbeddingProvider] Embedding failed:', message);
-      throw new Error(`임베딩 실패: ${message}`);
+      throw new Error(`Embedding failed: ${message}`);
     }
   }
 
   /**
-   * 여러 텍스트를 배치로 변환
-   * 입력 배열과 동일한 길이의 배열 반환 (빈 텍스트는 빈 벡터)
+   * Convert multiple texts in batch
+   * Returns array of same length as input (empty texts get empty vectors)
    */
   async embedBatch(texts: string[]): Promise<number[][]> {
     if (!this.isAvailable()) {
       throw new Error('[OpenAIEmbeddingProvider] API key not configured');
     }
 
-    // 빈 텍스트 인덱스 추적
+    // Track empty text indices
     const cleanedTexts = texts.map(t => this.cleanText(t));
     const nonEmptyIndices: number[] = [];
     const textsToEmbed: string[] = [];
@@ -112,7 +112,7 @@ export class OpenAIEmbeddingProvider implements IEmbeddingProvider {
     }
 
     if (textsToEmbed.length === 0) {
-      // 모든 텍스트가 빈 경우, 빈 벡터 배열 반환
+      // Return empty vector array if all texts are empty
       return texts.map(() => []);
     }
 
@@ -136,12 +136,12 @@ export class OpenAIEmbeddingProvider implements IEmbeddingProvider {
       }
 
       const data = response.json;
-      // 응답 순서대로 벡터 추출
+      // Extract vectors in response order
       const embeddings = data.data
         .sort((a: { index: number }, b: { index: number }) => a.index - b.index)
         .map((item: { embedding: number[] }) => item.embedding);
 
-      // 원본 배열과 동일한 길이로 재구성 (빈 텍스트는 빈 벡터)
+      // Reconstruct to same length as original array (empty texts get empty vectors)
       const result: number[][] = texts.map(() => []);
       for (let i = 0; i < nonEmptyIndices.length; i++) {
         result[nonEmptyIndices[i]] = embeddings[i];
@@ -155,12 +155,12 @@ export class OpenAIEmbeddingProvider implements IEmbeddingProvider {
   }
 
   /**
-   * 텍스트 전처리
+   * Text preprocessing
    */
   private cleanText(text: string): string {
     return text
-      .replace(/\s+/g, ' ')  // 연속 공백 제거
+      .replace(/\s+/g, ' ')  // Remove consecutive whitespace
       .trim()
-      .slice(0, 8000);  // 토큰 제한 (대략 8000자)
+      .slice(0, 8000);  // Token limit (approximately 8000 characters)
   }
 }

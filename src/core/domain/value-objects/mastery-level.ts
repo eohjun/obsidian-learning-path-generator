@@ -1,8 +1,8 @@
 /**
  * MasteryLevel Value Object
- * 학습 숙달도를 나타내는 불변 값 객체
+ * Immutable value object representing learning mastery level
  *
- * 상태 전이:
+ * State transitions:
  * NOT_STARTED → IN_PROGRESS → COMPLETED
  *      ↑___________reset___________↓
  */
@@ -99,11 +99,11 @@ export class MasteryLevel {
   toDisplayLabel(): string {
     switch (this._value) {
       case MasteryLevelValue.NOT_STARTED:
-        return '미학습';
+        return 'Not Started';
       case MasteryLevelValue.IN_PROGRESS:
-        return '학습중';
+        return 'In Progress';
       case MasteryLevelValue.COMPLETED:
-        return '완료';
+        return 'Completed';
     }
   }
 

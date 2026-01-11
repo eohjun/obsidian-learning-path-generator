@@ -1,6 +1,6 @@
 /**
  * NoteRepository Adapter
- * Obsidian API를 사용한 노트 저장소 구현
+ * Note repository implementation using Obsidian API
  */
 
 import { App, TFile, CachedMetadata, getAllTags } from 'obsidian';
@@ -11,7 +11,7 @@ export class NoteRepository implements INoteRepository {
   constructor(private readonly app: App) {}
 
   async getNote(noteId: string): Promise<NoteData | null> {
-    // noteId는 hash 기반 ID (Vault Embeddings 호환)
+    // noteId is hash-based ID (Vault Embeddings compatible)
     const files = this.app.vault.getMarkdownFiles();
     const file = files.find((f) => generateNoteId(f.path) === noteId);
 
@@ -151,7 +151,7 @@ export class NoteRepository implements INoteRepository {
     const results: NoteData[] = [];
 
     for (const note of allNotes) {
-      // 제목 또는 내용에서 검색
+      // Search in title or content
       const titleMatch = note.basename.toLowerCase().includes(queryLower);
       const contentMatch = note.content.toLowerCase().includes(queryLower);
 
@@ -159,7 +159,7 @@ export class NoteRepository implements INoteRepository {
         results.push(note);
       }
 
-      // 결과 수 제한
+      // Limit results
       if (options?.limit && results.length >= options.limit) {
         break;
       }
@@ -169,7 +169,7 @@ export class NoteRepository implements INoteRepository {
   }
 
   /**
-   * TFile을 NoteData로 변환
+   * Convert TFile to NoteData
    */
   private async fileToNoteData(file: TFile): Promise<NoteData | null> {
     try {
@@ -177,7 +177,7 @@ export class NoteRepository implements INoteRepository {
       const cache = this.app.metadataCache.getFileCache(file);
 
       return {
-        id: generateNoteId(file.path), // Hash-based ID (Vault Embeddings 호환)
+        id: generateNoteId(file.path), // Hash-based ID (Vault Embeddings compatible)
         path: file.path,
         basename: file.basename,
         content,
@@ -195,7 +195,7 @@ export class NoteRepository implements INoteRepository {
   }
 
   /**
-   * 캐시에서 태그 추출
+   * Extract tags from cache
    */
   private extractTags(cache: CachedMetadata | null): string[] {
     if (!cache) return [];
@@ -203,24 +203,24 @@ export class NoteRepository implements INoteRepository {
   }
 
   /**
-   * 캐시에서 링크 추출 (basename만)
+   * Extract links from cache (basename only)
    */
   private extractLinks(cache: CachedMetadata | null): string[] {
     if (!cache?.links) return [];
 
     return cache.links
       .map((link) => {
-        // [[Note Name]] 또는 [[path/to/Note Name]] 에서 basename 추출
+        // Extract basename from [[Note Name]] or [[path/to/Note Name]]
         const linkPath = link.link;
         const basename = linkPath.split('/').pop() ?? linkPath;
-        // 확장자 제거
+        // Remove extension
         return basename.replace(/\.md$/, '');
       })
-      .filter((name, index, arr) => arr.indexOf(name) === index); // 중복 제거
+      .filter((name, index, arr) => arr.indexOf(name) === index); // Remove duplicates
   }
 
   /**
-   * 백링크 추출
+   * Extract backlinks
    */
   private extractBacklinks(file: TFile): string[] {
     const backlinks: string[] = [];

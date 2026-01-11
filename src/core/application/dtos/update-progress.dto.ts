@@ -1,57 +1,57 @@
 /**
  * UpdateProgress Use Case DTOs
- * 학습 진행 상태 업데이트 요청/응답 데이터 전송 객체
+ * Learning progress update request/response data transfer objects
  */
 
 import { MasteryLevelValue, PathStatisticsData } from '../../domain';
 
 export interface UpdateProgressRequest {
   /**
-   * 학습 경로 ID
+   * Learning path ID
    */
   pathId: string;
 
   /**
-   * 노드 ID
+   * Node ID
    */
   nodeId: string;
 
   /**
-   * 새로운 숙달 레벨
+   * New mastery level
    */
   newLevel: MasteryLevelValue;
 }
 
 export interface UpdateProgressResponse {
   /**
-   * 성공 여부
+   * Success status
    */
   success: boolean;
 
   /**
-   * 업데이트된 경로 통계
+   * Updated path statistics
    */
   statistics?: PathStatisticsData;
 
   /**
-   * 다음 학습 추천 노드 ID들
+   * Next recommended node IDs for learning
    */
   nextRecommendedNodes?: string[];
 
   /**
-   * 에러 메시지
+   * Error message
    */
   error?: string;
 }
 
 export interface BulkUpdateProgressRequest {
   /**
-   * 학습 경로 ID
+   * Learning path ID
    */
   pathId: string;
 
   /**
-   * 여러 노드의 진행 상태 업데이트
+   * Progress updates for multiple nodes
    */
   updates: Array<{
     nodeId: string;
@@ -61,17 +61,17 @@ export interface BulkUpdateProgressRequest {
 
 export interface BulkUpdateProgressResponse {
   /**
-   * 성공 여부
+   * Success status
    */
   success: boolean;
 
   /**
-   * 업데이트된 경로 통계
+   * Updated path statistics
    */
   statistics?: PathStatisticsData;
 
   /**
-   * 실패한 업데이트들
+   * Failed updates
    */
   failed?: Array<{
     nodeId: string;
@@ -79,7 +79,7 @@ export interface BulkUpdateProgressResponse {
   }>;
 
   /**
-   * 에러 메시지
+   * Error message
    */
   error?: string;
 }

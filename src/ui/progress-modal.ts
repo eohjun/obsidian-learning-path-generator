@@ -1,6 +1,6 @@
 /**
  * Progress Modal
- * Drive Embedder 패턴을 그대로 적용한 진행률 모달
+ * Progress modal following Drive Embedder pattern
  */
 
 import { Modal, App } from 'obsidian';
@@ -15,7 +15,7 @@ export interface ProgressUpdate {
 export class ProgressModal extends Modal {
   private modalTitle: string;
 
-  // Progress UI Elements (Drive Embedder 패턴)
+  // Progress UI Elements (Drive Embedder pattern)
   private progressEl: HTMLElement | null = null;
   private progressFillEl: HTMLElement | null = null;
   private progressStatusEl: HTMLElement | null = null;
@@ -35,7 +35,7 @@ export class ProgressModal extends Modal {
     // Modal Header
     contentEl.createEl('h2', { text: this.modalTitle });
 
-    // Progress Section (Drive Embedder 패턴: 미리 생성)
+    // Progress Section (Drive Embedder pattern: pre-created)
     this.progressEl = contentEl.createDiv({ cls: 'progress-section' });
     this.showProgress();
 
@@ -44,13 +44,13 @@ export class ProgressModal extends Modal {
     buttonContainer.style.marginTop = '20px';
     buttonContainer.style.textAlign = 'center';
 
-    this.closeBtn = buttonContainer.createEl('button', { text: '닫기' });
+    this.closeBtn = buttonContainer.createEl('button', { text: 'Close' });
     this.closeBtn.disabled = true;
     this.closeBtn.addEventListener('click', () => this.close());
   }
 
   /**
-   * Drive Embedder의 showProgress() 패턴 복사
+   * Show progress (Drive Embedder showProgress() pattern)
    */
   private showProgress(): void {
     if (!this.progressEl) return;
@@ -62,7 +62,7 @@ export class ProgressModal extends Modal {
     container.style.marginTop = '15px';
 
     // Status text
-    this.progressStatusEl = container.createEl('p', { text: '준비 중...' });
+    this.progressStatusEl = container.createEl('p', { text: 'Preparing...' });
     this.progressStatusEl.style.marginBottom = '10px';
 
     // Progress bar
@@ -73,7 +73,7 @@ export class ProgressModal extends Modal {
     progressBar.style.borderRadius = '10px';
     progressBar.style.overflow = 'hidden';
 
-    // Progress fill (왼쪽에서 오른쪽으로)
+    // Progress fill (left to right)
     this.progressFillEl = progressBar.createDiv({ cls: 'progress-fill' });
     this.progressFillEl.setCssStyles({
       width: '0%',
@@ -84,7 +84,7 @@ export class ProgressModal extends Modal {
       left: '0',
       top: '0',
     });
-    // 부모에 relative 설정
+    // Set relative position on parent
     progressBar.style.position = 'relative';
 
     // Percentage text
@@ -94,7 +94,7 @@ export class ProgressModal extends Modal {
   }
 
   /**
-   * Drive Embedder의 updateProgress() 패턴 복사
+   * Update progress (Drive Embedder updateProgress() pattern)
    */
   updateProgress(progress: ProgressUpdate): void {
     if (!this.progressEl) return;
@@ -113,7 +113,7 @@ export class ProgressModal extends Modal {
   }
 
   /**
-   * 완료 상태
+   * Complete state
    */
   setComplete(message: string): void {
     if (this.progressStatusEl) {
@@ -138,7 +138,7 @@ export class ProgressModal extends Modal {
   }
 
   /**
-   * 에러 상태
+   * Error state
    */
   setError(message: string): void {
     if (this.progressStatusEl) {

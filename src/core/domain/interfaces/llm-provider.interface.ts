@@ -1,6 +1,6 @@
 /**
  * LLM Provider Interface
- * 표준 LLM Provider 인터페이스 + 학습 경로 전용 메서드
+ * Standard LLM Provider interface + learning path specific methods
  */
 
 import { DependencyRelation } from '../value-objects/dependency-relation';
@@ -70,19 +70,19 @@ export interface LearningPathAnalysisResult {
 }
 
 /**
- * 선수 개념 추출 결과
- * 목표 노트를 이해하기 위해 필요한 개념들을 추출합니다.
+ * Prerequisite concept extraction result
+ * Extracts concepts needed to understand the goal note.
  */
 export interface ConceptExtractionResult {
-  /** 추출된 선수 개념 목록 */
+  /** List of extracted prerequisite concepts */
   prerequisites: Array<{
     concept: string;
     description: string;
     importance: 'essential' | 'helpful' | 'optional';
   }>;
-  /** 목표 노트의 핵심 주제 */
+  /** Core topic of the goal note */
   mainTopic: string;
-  /** 관련 키워드 (검색에 활용) */
+  /** Related keywords (for search) */
   keywords: string[];
 }
 
@@ -124,8 +124,8 @@ export interface ILLMProvider {
   ): Promise<LLMResponse<LearningPathAnalysisResult>>;
 
   /**
-   * 목표 노트에서 선수 개념 추출
-   * 이 노트를 이해하기 위해 필요한 배경 지식/개념을 식별합니다.
+   * Extract prerequisite concepts from goal note
+   * Identifies background knowledge/concepts needed to understand this note.
    */
   extractPrerequisiteConcepts(
     goalNote: { title: string; content: string }

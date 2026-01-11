@@ -1,55 +1,55 @@
 /**
  * IEmbeddingProvider Interface
  *
- * 텍스트를 벡터로 변환하는 임베딩 프로바이더 인터페이스.
- * OpenAI, Claude 등 다양한 임베딩 API를 추상화.
+ * Embedding provider interface for converting text to vectors.
+ * Abstracts various embedding APIs such as OpenAI, Claude, etc.
  */
 
 /**
- * 임베딩된 벡터와 메타데이터
+ * Embedding vector with metadata
  */
 export interface EmbeddingVector {
-  /** 노트 식별자 (basename) */
+  /** Note identifier (basename) */
   noteId: string;
-  /** 노트 파일 경로 */
+  /** Note file path */
   notePath: string;
-  /** 임베딩 벡터 */
+  /** Embedding vector */
   vector: number[];
-  /** 원본 텍스트 (디버깅용) */
+  /** Original text (for debugging) */
   content: string;
 }
 
 /**
- * 임베딩 프로바이더 인터페이스
+ * Embedding provider interface
  */
 export interface IEmbeddingProvider {
   /**
-   * 단일 텍스트를 벡터로 변환
+   * Convert single text to vector
    *
-   * @param text - 임베딩할 텍스트
-   * @returns 임베딩 벡터 배열
+   * @param text - Text to embed
+   * @returns Embedding vector array
    */
   embed(text: string): Promise<number[]>;
 
   /**
-   * 여러 텍스트를 배치로 변환
+   * Convert multiple texts in batch
    *
-   * @param texts - 임베딩할 텍스트 배열
-   * @returns 임베딩 벡터 배열의 배열
+   * @param texts - Array of texts to embed
+   * @returns Array of embedding vector arrays
    */
   embedBatch(texts: string[]): Promise<number[][]>;
 
   /**
-   * 프로바이더 사용 가능 여부
+   * Check provider availability
    *
-   * @returns API 키가 설정되어 있고 사용 가능하면 true
+   * @returns true if API key is configured and available
    */
   isAvailable(): boolean;
 
   /**
-   * 임베딩 벡터의 차원 수
+   * Get embedding vector dimensions
    *
-   * @returns 벡터 차원 (예: OpenAI text-embedding-3-small = 1536)
+   * @returns Vector dimensions (e.g., OpenAI text-embedding-3-small = 1536)
    */
   getDimensions(): number;
 }
