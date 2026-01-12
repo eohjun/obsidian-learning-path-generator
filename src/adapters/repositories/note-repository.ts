@@ -3,7 +3,7 @@
  * Note repository implementation using Obsidian API
  */
 
-import { App, TFile, CachedMetadata, getAllTags } from 'obsidian';
+import { App, TFile, CachedMetadata, getAllTags, normalizePath } from 'obsidian';
 import { INoteRepository, NoteData } from '../../core/domain';
 import { generateNoteId } from '../../core/domain/utils/note-id';
 
@@ -23,7 +23,8 @@ export class NoteRepository implements INoteRepository {
   }
 
   async getNoteByPath(path: string): Promise<NoteData | null> {
-    const file = this.app.vault.getAbstractFileByPath(path);
+    const normalizedPath = normalizePath(path);
+    const file = this.app.vault.getAbstractFileByPath(normalizedPath);
 
     if (!file || !(file instanceof TFile)) {
       return null;
@@ -96,23 +97,25 @@ export class NoteRepository implements INoteRepository {
     let files = this.app.vault.getMarkdownFiles();
     console.log(`[NoteRepository] Total markdown files in vault: ${files.length}`);
 
-    // Filter by folder
+    // Filter by folder (cross-platform safe)
     if (options?.folder) {
-      const folderPath = options.folder.endsWith('/')
-        ? options.folder
-        : `${options.folder}/`;
+      const normalizedFolder = normalizePath(options.folder);
+      const folderPath = normalizedFolder.endsWith('/')
+        ? normalizedFolder
+        : `${normalizedFolder}/`;
       files = files.filter((f) => f.path.startsWith(folderPath));
       console.log(`[NoteRepository] After folder filter (${options.folder}): ${files.length}`);
     }
 
-    // Exclude folders
+    // Exclude folders (cross-platform safe)
     if (options?.excludeFolders && options.excludeFolders.length > 0) {
       const beforeCount = files.length;
       files = files.filter((f) => {
         return !options.excludeFolders!.some((excludeFolder) => {
-          const excludePath = excludeFolder.endsWith('/')
-            ? excludeFolder
-            : `${excludeFolder}/`;
+          const normalizedExclude = normalizePath(excludeFolder);
+          const excludePath = normalizedExclude.endsWith('/')
+            ? normalizedExclude
+            : `${normalizedExclude}/`;
           return f.path.startsWith(excludePath);
         });
       });
