@@ -350,6 +350,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
 
     if (!apiKey) {
       console.warn('[LearningPathGenerator] OpenAI API key not configured. Semantic search queries will fail.');
+      new Notice('Learning Path Generator: API key not configured. Set it in Settings for AI-powered paths.');
     } else {
       const stats = await this.vectorStore.getStats();
       console.log(`[LearningPathGenerator] Embedding system initialized: ${stats.totalEmbeddings} embeddings from Vault Embeddings`);

@@ -63,7 +63,8 @@ export class LearningPathView extends ItemView {
   }
 
   async onClose(): Promise<void> {
-    // Cleanup
+    this.currentPath = null;
+    this.dependencies = null;
   }
 
   /**
@@ -421,9 +422,16 @@ export class LearningPathView extends ItemView {
     const displayNodes = allNodes.slice(0, maxDisplay);
     const hiddenCount = allNodes.length - displayNodes.length;
 
+    container.setAttribute('role', 'list');
+    container.setAttribute('aria-label', 'Learning path nodes');
+
     for (const node of displayNodes) {
       const nodeEl = container.createDiv({
         cls: `learning-path-node ${this.getNodeStatusClass(node)}`,
+        attr: {
+          role: 'listitem',
+          'aria-label': `${node.order}. ${node.title} — ${this.getNodeStatusClass(node).replace('-', ' ')}`,
+        },
       });
 
       // Status Icon
