@@ -65,6 +65,7 @@ export class LearningPathView extends ItemView {
   async onClose(): Promise<void> {
     this.currentPath = null;
     this.dependencies = null;
+    this.containerEl.children[1]?.empty();
   }
 
   /**
