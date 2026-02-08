@@ -19,6 +19,7 @@ export {
 // Embedding Adapters (Vault Embeddings Integration)
 export {
   OpenAIEmbeddingProvider,
+  VaultEmbeddingsQueryProvider,
   InMemoryVectorStore,
   VaultEmbeddingsVectorStore,
   StandaloneSemanticSearchAdapter,

@@ -9,6 +9,7 @@ import { Plugin, WorkspaceLeaf, Notice, TFile, TFolder } from 'obsidian';
 import {
   DependencyAnalyzer,
   AIProviderType,
+  type IEmbeddingProvider,
 } from './core/domain';
 import {
   GenerateLearningPathUseCase,
@@ -26,6 +27,7 @@ import {
   GeminiProvider,
   GrokProvider,
   OpenAIEmbeddingProvider,
+  VaultEmbeddingsQueryProvider,
   VaultEmbeddingsVectorStore,
   StandaloneSemanticSearchAdapter,
 } from './adapters';
@@ -50,7 +52,7 @@ export default class LearningPathGeneratorPlugin extends Plugin {
   private progressRepository!: ProgressRepository;
   private dependencyAnalyzer!: DependencyAnalyzer;
   private aiService!: AIService;
-  private embeddingProvider!: OpenAIEmbeddingProvider;
+  private embeddingProvider!: IEmbeddingProvider;
   private vectorStore!: VaultEmbeddingsVectorStore;
   private embeddingService!: EmbeddingService;
   private semanticSearchAdapter!: StandaloneSemanticSearchAdapter;
@@ -324,11 +326,21 @@ export default class LearningPathGeneratorPlugin extends Plugin {
    * Query embeddings: Generate via OpenAI API
    */
   private async initializeEmbeddingSystem(): Promise<void> {
-    // OpenAI API key (for query embeddings)
-    const apiKey = this.settings.embedding.openaiApiKey || this.settings.ai.apiKeys.openai;
-
-    // Query embedding provider (OpenAI)
-    this.embeddingProvider = new OpenAIEmbeddingProvider(apiKey || '');
+    // VE 쿼리 프로바이더 우선 시도, OpenAI 폴백
+    const veQueryProvider = new VaultEmbeddingsQueryProvider(this.app);
+    if (veQueryProvider.isAvailable()) {
+      this.embeddingProvider = veQueryProvider;
+      console.log('[LearningPathGenerator] Using Vault Embeddings query provider');
+    } else {
+      const apiKey = this.settings.embedding.openaiApiKey || this.settings.ai.apiKeys.openai;
+      this.embeddingProvider = new OpenAIEmbeddingProvider(apiKey || '');
+      if (!apiKey) {
+        console.warn('[LearningPathGenerator] VE query API unavailable, OpenAI API key not configured. Semantic search queries will fail.');
+        new Notice('Learning Path Generator: API key not configured. Set it in Settings for AI-powered paths.');
+      } else {
+        console.log('[LearningPathGenerator] Vault Embeddings query API not available, using OpenAI fallback');
+      }
+    }
 
     // Read note embeddings from Vault Embeddings
     this.vectorStore = new VaultEmbeddingsVectorStore(this.app, {
@@ -348,13 +360,8 @@ export default class LearningPathGeneratorPlugin extends Plugin {
       this.embeddingService
     );
 
-    if (!apiKey) {
-      console.warn('[LearningPathGenerator] OpenAI API key not configured. Semantic search queries will fail.');
-      new Notice('Learning Path Generator: API key not configured. Set it in Settings for AI-powered paths.');
-    } else {
-      const stats = await this.vectorStore.getStats();
-      console.log(`[LearningPathGenerator] Embedding system initialized: ${stats.totalEmbeddings} embeddings from Vault Embeddings`);
-    }
+    const stats = await this.vectorStore.getStats();
+    console.log(`[LearningPathGenerator] Embedding system initialized: ${stats.totalEmbeddings} embeddings from Vault Embeddings`);
   }
 
   /**

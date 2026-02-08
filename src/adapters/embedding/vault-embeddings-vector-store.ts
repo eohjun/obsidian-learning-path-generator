@@ -114,8 +114,15 @@ export class VaultEmbeddingsVectorStore implements IVectorStore {
       isAvailable: this.isAvailable(),
       totalEmbeddings: this.cache.size,
       model: this.indexCache?.model ?? 'unknown',
-      provider: 'openai', // Vault Embeddings uses OpenAI
+      provider: 'vault-embeddings',
     };
+  }
+
+  /**
+   * Get stored embedding dimensions from index
+   */
+  getStoredDimensions(): number | null {
+    return this.indexCache?.dimensions ?? null;
   }
 
   /**
@@ -149,6 +156,7 @@ export class VaultEmbeddingsVectorStore implements IVectorStore {
     const excludeNoteIds = new Set(options?.excludeNoteIds ?? []);
 
     const results: VectorSearchResult[] = [];
+    let dimensionWarningLogged = false;
 
     for (const [noteId, embedding] of this.cache) {
       if (excludeNoteIds.has(noteId)) {
@@ -157,6 +165,10 @@ export class VaultEmbeddingsVectorStore implements IVectorStore {
 
       // Skip if dimensions don't match
       if (queryVector.length !== embedding.vector.length) {
+        if (!dimensionWarningLogged) {
+          console.warn(`[VaultEmbeddingsVectorStore] Dimension mismatch: query=${queryVector.length}d, stored=${embedding.vector.length}d. Ensure query embeddings use the same provider as Vault Embeddings.`);
+          dimensionWarningLogged = true;
+        }
         continue;
       }
 
