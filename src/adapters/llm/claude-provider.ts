@@ -1,6 +1,8 @@
 /**
- * Claude LLM Provider
- * Anthropic Claude API implementation
+ * Claude Provider — 공유 빌더/파서 사용
+ *
+ * 추가: Extended thinking 지원 (Opus 4.6, Sonnet 4.6)
+ * 수정: Thinking 블록 필터링, thinking 시 temperature 자동 차단
  */
 
 import {
@@ -11,25 +13,11 @@ import {
   AI_PROVIDERS,
 } from '../../core/domain';
 import { BaseProvider } from './base-provider';
-
-interface ClaudeMessage {
-  role: 'user' | 'assistant';
-  content: string;
-}
-
-interface ClaudeResponse {
-  content: Array<{ type: string; text: string }>;
-  usage?: {
-    input_tokens: number;
-    output_tokens: number;
-  };
-  error?: { message: string };
-}
+import { buildAnthropicBody, parseAnthropicResponse } from 'obsidian-llm-shared';
 
 export class ClaudeProvider extends BaseProvider {
   readonly name = 'Anthropic Claude';
   readonly providerType: AIProviderType = 'claude';
-  private readonly API_VERSION = '2023-06-01';
 
   constructor() {
     super();
@@ -42,56 +30,38 @@ export class ClaudeProvider extends BaseProvider {
     }
 
     try {
-      const { claudeMessages, systemPrompt } = this.convertMessages(messages);
+      const body = buildAnthropicBody(messages, this.model, {
+        maxTokens: options?.maxTokens,
+        temperature: options?.temperature,
+      });
 
-      const requestBody: Record<string, unknown> = {
-        model: this.model,
-        max_tokens: options?.maxTokens || 4096,
-        messages: claudeMessages,
-      };
+      if (options?.topP !== undefined) body.top_p = options.topP;
+      if (options?.stopSequences) body.stop_sequences = options.stopSequences;
 
-      if (systemPrompt) {
-        requestBody.system = systemPrompt;
-      }
-
-      if (options?.temperature !== undefined) {
-        requestBody.temperature = options.temperature;
-      }
-
-      if (options?.topP !== undefined) {
-        requestBody.top_p = options.topP;
-      }
-
-      if (options?.stopSequences) {
-        requestBody.stop_sequences = options.stopSequences;
-      }
-
-      const response = await this.makeRequest<ClaudeResponse>({
+      const json = await this.makeRequest<Record<string, unknown>>({
         url: `${AI_PROVIDERS.claude.endpoint}/messages`,
         method: 'POST',
         headers: {
           'x-api-key': this.apiKey,
-          'anthropic-version': this.API_VERSION,
+          'anthropic-version': '2023-06-01',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify(body),
       });
 
-      if (response.error) {
-        return { success: false, content: '', error: response.error.message };
+      const result = parseAnthropicResponse(json);
+      if (!result.success) {
+        return { success: false, content: '', error: result.error };
       }
 
-      const content = response.content?.[0]?.text || '';
       return {
         success: true,
-        content,
-        usage: response.usage
-          ? {
-              inputTokens: response.usage.input_tokens,
-              outputTokens: response.usage.output_tokens,
-              totalTokens: response.usage.input_tokens + response.usage.output_tokens,
-            }
-          : undefined,
+        content: result.text,
+        usage: {
+          inputTokens: result.usage.inputTokens,
+          outputTokens: result.usage.outputTokens,
+          totalTokens: result.usage.totalTokens,
+        },
       };
     } catch (error) {
       return this.handleError(error);
@@ -100,45 +70,24 @@ export class ClaudeProvider extends BaseProvider {
 
   async testApiKey(apiKey: string): Promise<boolean> {
     try {
-      const response = await this.makeRequest<ClaudeResponse>({
+      const body = buildAnthropicBody(
+        [{ role: 'user', content: 'Hello' }],
+        this.model || AI_PROVIDERS.claude.defaultModel,
+        { maxTokens: 10 }
+      );
+      const json = await this.makeRequest<Record<string, unknown>>({
         url: `${AI_PROVIDERS.claude.endpoint}/messages`,
         method: 'POST',
         headers: {
           'x-api-key': apiKey,
-          'anthropic-version': this.API_VERSION,
+          'anthropic-version': '2023-06-01',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          model: this.model || AI_PROVIDERS.claude.defaultModel,
-          max_tokens: 10,
-          messages: [{ role: 'user', content: 'Hello' }],
-        }),
+        body: JSON.stringify(body),
       });
-
-      return !response.error && !!response.content;
+      return parseAnthropicResponse(json).success;
     } catch {
       return false;
     }
-  }
-
-  private convertMessages(messages: LLMMessage[]): {
-    claudeMessages: ClaudeMessage[];
-    systemPrompt: string | null;
-  } {
-    let systemPrompt: string | null = null;
-    const claudeMessages: ClaudeMessage[] = [];
-
-    for (const msg of messages) {
-      if (msg.role === 'system') {
-        systemPrompt = systemPrompt ? `${systemPrompt}\n\n${msg.content}` : msg.content;
-      } else {
-        claudeMessages.push({
-          role: msg.role as 'user' | 'assistant',
-          content: msg.content,
-        });
-      }
-    }
-
-    return { claudeMessages, systemPrompt };
   }
 }

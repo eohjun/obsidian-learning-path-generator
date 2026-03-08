@@ -1,6 +1,7 @@
 /**
- * OpenAI LLM Provider
- * OpenAI GPT API implementation
+ * OpenAI Provider — 공유 빌더/파서 사용
+ *
+ * 수정된 버그: temperature가 reasoning 모델에도 전송되던 문제 해결
  */
 
 import {
@@ -11,23 +12,7 @@ import {
   AI_PROVIDERS,
 } from '../../core/domain';
 import { BaseProvider } from './base-provider';
-
-interface OpenAIMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
-
-interface OpenAIResponse {
-  choices: Array<{
-    message: { content: string };
-  }>;
-  usage?: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
-  error?: { message: string };
-}
+import { buildOpenAIBody, parseOpenAIResponse } from 'obsidian-llm-shared';
 
 export class OpenAIProvider extends BaseProvider {
   readonly name = 'OpenAI GPT';
@@ -44,60 +29,34 @@ export class OpenAIProvider extends BaseProvider {
     }
 
     try {
-      const openaiMessages: OpenAIMessage[] = messages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
-
-      const isReasoningModel =
-        this.model.startsWith('o1') || this.model.startsWith('o3') || this.model.startsWith('gpt-5');
-
-      const requestBody: Record<string, unknown> = {
-        model: this.model,
-        messages: openaiMessages,
-      };
-
-      if (isReasoningModel) {
-        requestBody.max_completion_tokens = options?.maxTokens || 4096;
-      } else {
-        requestBody.max_tokens = options?.maxTokens || 4096;
-        if (options?.temperature !== undefined) {
-          requestBody.temperature = options.temperature;
-        }
-        if (options?.topP !== undefined) {
-          requestBody.top_p = options.topP;
-        }
-      }
-
-      if (options?.stopSequences) {
-        requestBody.stop = options.stopSequences;
-      }
-
-      const response = await this.makeRequest<OpenAIResponse>({
-        url: `${AI_PROVIDERS.openai.endpoint}/chat/completions`,
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
+      const body = buildOpenAIBody(messages, this.model, {
+        maxTokens: options?.maxTokens,
+        temperature: options?.temperature,
       });
 
-      if (response.error) {
-        return { success: false, content: '', error: response.error.message };
+      if (options?.topP !== undefined) body.top_p = options.topP;
+      if (options?.stopSequences) body.stop = options.stopSequences;
+
+      const json = await this.makeRequest<Record<string, unknown>>({
+        url: `${AI_PROVIDERS.openai.endpoint}/chat/completions`,
+        method: 'POST',
+        headers: { Authorization: `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      const result = parseOpenAIResponse(json);
+      if (!result.success) {
+        return { success: false, content: '', error: result.error };
       }
 
-      const content = response.choices?.[0]?.message?.content || '';
       return {
         success: true,
-        content,
-        usage: response.usage
-          ? {
-              inputTokens: response.usage.prompt_tokens,
-              outputTokens: response.usage.completion_tokens,
-              totalTokens: response.usage.total_tokens,
-            }
-          : undefined,
+        content: result.text,
+        usage: {
+          inputTokens: result.usage.inputTokens,
+          outputTokens: result.usage.outputTokens,
+          totalTokens: result.usage.totalTokens,
+        },
       };
     } catch (error) {
       return this.handleError(error);
@@ -106,33 +65,18 @@ export class OpenAIProvider extends BaseProvider {
 
   async testApiKey(apiKey: string): Promise<boolean> {
     try {
-      const model = this.model || AI_PROVIDERS.openai.defaultModel;
-      const isReasoningModel =
-        model.startsWith('o1') || model.startsWith('o3') || model.startsWith('gpt-5');
-
-      const requestBody: Record<string, unknown> = {
-        model,
-        messages: [{ role: 'user', content: 'Hello' }],
-      };
-
-      // GPT-5.x and o-series models use max_completion_tokens instead of max_tokens
-      if (isReasoningModel) {
-        requestBody.max_completion_tokens = 10;
-      } else {
-        requestBody.max_tokens = 10;
-      }
-
-      const response = await this.makeRequest<OpenAIResponse>({
+      const body = buildOpenAIBody(
+        [{ role: 'user', content: 'Hello' }],
+        this.model || AI_PROVIDERS.openai.defaultModel,
+        { maxTokens: 10 }
+      );
+      const json = await this.makeRequest<Record<string, unknown>>({
         url: `${AI_PROVIDERS.openai.endpoint}/chat/completions`,
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
       });
-
-      return !response.error && response.choices?.length > 0;
+      return parseOpenAIResponse(json).success;
     } catch {
       return false;
     }
