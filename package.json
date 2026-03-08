@@ -31,5 +31,8 @@
 		"obsidian": "^1.11.0",
 		"ts-jest": "^29.2.5",
 		"typescript": "^5.9.3"
+	},
+	"dependencies": {
+		"obsidian-llm-shared": "github:eohjun/obsidian-llm-shared"
 	}
 }
