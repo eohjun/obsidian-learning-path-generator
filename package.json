@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-learning-path-generator",
-	"version": "0.7.15",
+	"version": "0.7.16",
 	"description": "Generate learning paths and curriculum from your vault notes with AI",
 	"main": "main.js",
 	"scripts": {
@@ -30,7 +30,7 @@
 		"jest": "^29.7.0",
 		"obsidian": "^1.11.0",
 		"ts-jest": "^29.2.5",
-		"typescript": "^5.9.3"
+		"typescript": "^6.0.2"
 	},
 	"dependencies": {
 		"obsidian-llm-shared": "github:eohjun/obsidian-llm-shared"
