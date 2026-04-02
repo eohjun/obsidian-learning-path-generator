@@ -68,23 +68,11 @@ export class GeminiProvider extends BaseProvider {
 
   async testApiKey(apiKey: string): Promise<boolean> {
     try {
-      const body = buildGeminiBody(
-        [{ role: 'user', content: 'Hello' }],
-        this.model || AI_PROVIDERS.gemini.defaultModel,
-        { maxTokens: 10 }
-      );
-      const url = getGeminiGenerateUrl(
-        this.model || AI_PROVIDERS.gemini.defaultModel,
-        apiKey,
-        AI_PROVIDERS.gemini.endpoint
-      );
-      const json = await this.makeRequest<Record<string, unknown>>({
-        url,
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+      const json = await this.makeRequest<{ models?: unknown[] }>({
+        url: `${AI_PROVIDERS.gemini.endpoint}/models?key=${apiKey}`,
+        method: 'GET',
       });
-      return parseGeminiResponse(json).success;
+      return Array.isArray(json?.models);
     } catch {
       return false;
     }

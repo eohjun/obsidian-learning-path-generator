@@ -70,22 +70,15 @@ export class ClaudeProvider extends BaseProvider {
 
   async testApiKey(apiKey: string): Promise<boolean> {
     try {
-      const body = buildAnthropicBody(
-        [{ role: 'user', content: 'Hello' }],
-        this.model || AI_PROVIDERS.claude.defaultModel,
-        { maxTokens: 10 }
-      );
-      const json = await this.makeRequest<Record<string, unknown>>({
-        url: `${AI_PROVIDERS.claude.endpoint}/messages`,
-        method: 'POST',
+      const json = await this.makeRequest<{ data?: unknown[] }>({
+        url: `${AI_PROVIDERS.claude.endpoint}/models`,
+        method: 'GET',
         headers: {
           'x-api-key': apiKey,
           'anthropic-version': '2023-06-01',
-          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(body),
       });
-      return parseAnthropicResponse(json).success;
+      return Array.isArray(json?.data);
     } catch {
       return false;
     }
